@@ -123,9 +123,25 @@ Other service decorators (from `@kinotic-ai/core`):
   })
   ```
 
-A published method may return a generic type (`Page<Order>`): the platform publishes a
-monomorphized concrete schema for it (`OrderPage`). A doubly-generic return
-(`Page<Map<string, unknown>>`) fails publication — publish a named DTO instead.
+### Parameter and return types
+
+Arguments and results travel as JSON, and `bun run generate` (and `kinotic sync`) publishes each
+function's types to the service directory as JSON carries them:
+
+- **Dates are `string`s holding ISO-8601 values** (`new Date().toISOString()`), in
+  parameters, results and the objects they carry. JSON has no date: a parameter declared
+  `Date` receives a string at runtime, and a caller's proxy gets a string back, so a
+  `Date` method call on it throws. A `Date` is still published as a date, with a warning
+  in the generate log and in the directory (the parameter's or function's `warnings`
+  metadata) — treat that warning as a bug and declare a `string`.
+- `Promise` / `PromiseLike` results are request-response, `Observable` results are
+  streams. `any`, `unknown` and unconstrained type parameters accept anything.
+- Interfaces, classes (fields only), generics (`Page<Order>` publishes as `Page_Order`),
+  `Partial` / `Pick`, intersections and object unions are objects;
+  `Record<string, V>` is a map; enums are enums; a union of string literals is a string.
+- `Map`, `Set`, `Uint8Array` / `Buffer`, `bigint`, tuples and callbacks fail generation
+  with the type to declare instead: a `Record` or array, an array, a base64 `string`, a
+  `number` or `string`, an array or object.
 
 Details: <https://kinotic.ai/apps/services/publishing-services>.
 
@@ -193,5 +209,5 @@ progress, and tailing. Docs: <https://kinotic.ai/apps/services/streaming>.
 - Service classes hold business logic; entities stay dumb data (persistence is the
   entities-and-persistence skill). A service reaches data through the generated
   repositories, which work in any connected process.
-- Method arguments and returns must be serializable data; use `Promise` for
-  request-response and `Observable` for streams.
+- Method arguments and returns must be JSON data, with dates as ISO-8601 `string`s; use
+  `Promise` for request-response and `Observable` for streams.
