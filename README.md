@@ -37,8 +37,8 @@ endpoint as its own MCP server alongside the plugin:
   everywhere else, while a later add from another directory reports "already exists".
 - **Claude desktop app** — Settings → Connectors → Add custom connector (`https` only)
 
-The skills resolve the Kinotic OS tools by title from the tool listing, so they work
-the same through a manually added server. Two server-side settings gate a non-cloud
+The skills pick the Kinotic OS tools by the title each description begins with, so they
+work the same through a manually added server. Two server-side settings gate a non-cloud
 server — whoever runs that server sets them; on Kinotic Cloud they are already in
 place: it must list the Claude client-metadata URL in
 `kinotic.domain.oauth.allowedClientIds` (there is no dynamic client registration),
@@ -88,7 +88,8 @@ Three consequences shape every skill in this plugin:
 Kinotic OS mints MCP tool names as opaque base-36 hashes (≤ 25 chars of `[0-9a-z]`),
 so permission names look like `mcp__plugin_kinotic_kinotic-os__5nwldv2gqljeygvmd1ywjl2z7`
 — grant with a wildcard (`mcp__plugin_kinotic_kinotic-os__*`) rather than per-tool
-literals, and select tools by their human-readable `title` in the tool listing.
+literals. Each tool's description begins with its title (`Application Service Count: …`),
+which is how the skills tell tools apart.
 
 ## End-to-end test checklist (maintainers)
 

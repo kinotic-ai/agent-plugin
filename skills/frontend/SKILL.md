@@ -249,7 +249,7 @@ establishes it.
   wrong email or password, or `403` when the page that sent it is not one of the
   application's UIs (its published sites, or `http://localhost` under the app server's
   development profile). The user must exist in **that application's** user base (portal,
-  Application → Members); the route does not authenticate organization members.
+  Application → **Users**); the route does not authenticate organization members.
 - `GET /api/auth/me` answers `204` when the browser holds a live session and `401`
   otherwise. `POST /api/auth/logout` ends the session.
 - Every request carries `credentials: 'include'`, and `Kinotic.connect` takes only the
@@ -414,33 +414,88 @@ claims — no extra scope headers.
 
 ## Application users and OIDC login
 
-Application-scope users are **pre-created** by an administrator — an OIDC identity alone
-does not grant access. The organization admin manages them on the portal's **Members**
-page, scoped to the application: local users get an email and password, OIDC users get
-an email only and the subject links automatically on first login.
+An application's users are its own user base, apart from the organization's members, and
+an identity at a provider never grants access by itself. A user comes from one of:
 
-For OIDC:
+- **An invitation.** An organization admin invites the email from the portal's
+  Application → **Users** page; the invitee accepts the emailed link with a password and
+  from then on signs in through Recipe 1's `login()`.
+- **First sign-in through the organization's own provider.** An
+  `ApplicationOidcConfiguration` with `createUserOnSignIn` on turns an identity it verifies
+  that no user is bound to into a user, from the provider's verified email and name — only
+  while the application's `tenantManagement` is `PLATFORM` (the default is
+  `TENANT_ADMINISTRATORS`), which gives each such user a tenant of its own. A
+  `TenantOidcConfiguration` with `createUserOnSignIn` does the same into its tenant, at
+  that tenant's login.
 
-1. An admin enables OIDC configurations (Google, Microsoft, a corporate IdP) on the
-   application. To see what is enabled, call the MCP tool titled
-   `Application Service Get Oidc Configurations` with `{"applicationId": "..."}`
-   (Kinotic MCP tool names are opaque hashes — always resolve by title from the tool
-   listing). An empty result means no provider is wired up yet — tell the user rather
-   than writing login code against a provider that will reject it.
-2. The frontend drives it through the same login handler Recipe 1's password route
-   lives on, so the sign-in page is email-first:
-   - `GET /api/auth/app/login/providers` lists the providers enabled for
-     the application, for a "sign in with …" button per provider.
-   - `POST /api/auth/app/login/lookup` with `{ email }` answers
-     `{ "type": "sso", "redirect": "…" }` when that email is an OIDC user with a live
-     provider — send the browser to `redirect` — or `{ "type": "password" }`, in which
-     case show the password field and call Recipe 1's `login()`. Like the password
-     login, it is refused with `403` from a page that is not one of the application's UIs.
-   - The provider returns the browser to
-     `GET /api/auth/app/login/oidc/callback/:configId`, which completes
-     the login and sets the session cookie, then lands back on the site.
-   Once the tab is back, Recipe 1's `resume()` sees the live session and opens the
-   connection. Every call carries `credentials: 'include'`, as in Recipe 1.
+The platform's shared Google and Microsoft registrations (named in the application's
+`socialProviders`) create no users: they sign in only a user already bound to that
+identity. An identity with no user and nothing to create one ends at `no_account`; one
+whose email the application already holds under another method ends at `account_exists`.
+
+The login page offers every method at once — the password form (Recipe 1's `login()`)
+and a "Continue with <name>" button per provider — and never asks the server about an
+email first; there is no lookup route.
+
+1. To see what the login offers, call the MCP tool whose description begins with
+   `Application Service Get Login Providers`, with `{"applicationId": "..."}` (Kinotic
+   MCP tool names are opaque hashes; match on the description). It answers
+   `[{configurationId, name, provider, type}]` in presentation order: the organization's
+   own `APPLICATION` configurations, then the `APP_SOCIAL` registrations the application
+   names. An empty list means the login is password only — tell the user rather than
+   writing provider buttons nobody can use.
+2. At runtime the page reads the same list from its API host, with
+   `credentials: 'include'` as in Recipe 1:
+   - `GET /api/auth/app/login/providers` answers `[{ id, name, provider }]` — `id` is the
+     configuration id, `provider` the kind's key (`google`, `azure-ad`, `okta`, …) for
+     branding.
+   - A button posts to `POST /api/auth/app/login/oidc/start/<id>` (no body) and answers
+     `{ "redirect": "…" }`; send the browser there. `400` for a configuration the login
+     does not offer, `403` from a page that is not one of the application's UIs. The flow's
+     state lives in the API host's session, so the start needs `credentials: 'include'`.
+   - The provider returns to the API host (a shared registration via the app server's
+     shared host), which sets the session cookie and sends the browser to `/` on the site
+     that started the sign-in. Recipe 1's `resume()` then sees the live session and opens
+     the connection.
+   - A failed sign-in lands on `<site>/login?error=<code>` (`no_account`,
+     `account_disabled`, `account_exists`, `email_not_verified`, `handoff_invalid`, …), so
+     the UI needs a `/login` route that shows the error and the methods again. One whose
+     flow session is lost lands on the application's primary UI's `/login` instead.
+3. A page served at one of a tenant's sites signs in to that tenant with the same calls:
+   the list adds the tenant's own providers ahead of the application's, and
+   `/api/auth/app/login` admits only the tenant's users. A page that is not a tenant site
+   (a UI on localhost, say) names the tenant with `?tenantId=` on the providers `GET` and
+   the start, and `tenantId` in the password body; `404` for a tenant the application
+   lacks. The MCP tool lists the application's own login only.
+
+```ts
+// src/kinotic/session.ts, beside Recipe 1's login()
+
+/** A provider the login offers, as GET /api/auth/app/login/providers lists it. */
+export interface LoginProvider { id: string; name: string; provider: string }
+
+/** The providers to render a "Continue with <name>" button for, in order. */
+export async function loginProviders(): Promise<LoginProvider[]> {
+    const res = await fetch(apiUrl('/api/auth/app/login/providers'), { credentials: 'include' })
+    if (!res.ok) {
+        throw new Error(await errorMessage(res, 'Could not load sign-in providers'))
+    }
+    return await res.json() as LoginProvider[]
+}
+
+/** Starts a sign-in through one provider; the browser leaves the page. */
+export async function continueWith(provider: LoginProvider): Promise<void> {
+    const res = await fetch(apiUrl(`/api/auth/app/login/oidc/start/${encodeURIComponent(provider.id)}`), {
+        method: 'POST',
+        credentials: 'include',            // the flow's state rides the API host's session
+    })
+    if (!res.ok) {
+        throw new Error(await errorMessage(res, 'Could not start sign-in'))
+    }
+    const { redirect } = await res.json() as { redirect: string }
+    window.location.assign(redirect)
+}
+```
 
 ## Calling services from the frontend
 
