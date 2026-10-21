@@ -19,15 +19,18 @@ An application holds one or more projects; the workflow below creates its defaul
 project, scaffolded as a Bun-workspace mono repo. The project's GitHub repository is created by
 Kinotic OS — never create the repository yourself.
 
-**MCP tool names are opaque hashes.** Resolve every Kinotic OS tool from the tool
-listing by its human-readable `title` (e.g. `Application Service Create Application If
-Not Exist`) — never call a tool by a guessed or remembered name, and never parse the
-hash. `references/mcp-tools.md` documents each tool by title.
+**MCP tool names are opaque hashes.** Every Kinotic OS tool's description begins with
+its title and a colon (e.g. `Application Service Create Application If Not Exist: Creates
+a new application …`) — pick the tool whose description starts with the title you need,
+matching the service half too, since inherited functions like `Count` and `Find All`
+carry the same text after the colon on every service. Never call a tool by a guessed or
+remembered name, and never parse the hash. `references/mcp-tools.md` documents each tool
+by title.
 
 ## Step 0 — Sign up or sign in to Kinotic OS
 
-Check whether the kinotic-os MCP tools are available — look in the tool listing for
-titles starting with `Application Service` / `Project Service` (e.g.
+Check whether the kinotic-os MCP tools are available — look for tools whose
+descriptions start with `Application Service` / `Project Service` (e.g.
 `Application Service Create Application If Not Exist`). If they are present, the user
 is already connected — skip to Step 1.
 
@@ -89,7 +92,7 @@ Missing either looks like "the server never appeared" after OAuth.
    is rejected only when blank, all punctuation, or slugifying to the platform-reserved
    id `system-api`.
 2. **Ask whether people sign in.** Ask in plain English, and never show the user the
-   `tenantPerUser` flag, JSON, or code:
+   `tenantManagement` setting, JSON, or code:
 
    > Should people have to sign in to use your app?
 
@@ -97,23 +100,23 @@ Missing either looks like "the server never appeared" after OAuth.
    supported yet, and that it's coming soon 🙂. Ask whether they want to continue with an
    app people sign in to. Do not create the application unless they do.
 
-   If they say **yes**, create the application with `tenantPerUser: true`, which gives every
-   user a tenant of their own. Each entity then decides who sees its rows:
+   If they say **yes**, create the application with `tenantManagement: "PLATFORM"`, which
+   gives every user a tenant of their own. Each entity then decides who sees its rows:
    `@Entity(MultiTenancyType.SHARED)` keeps each user's rows private to that user, and
    `@Entity(MultiTenancyType.NONE)` is data every user of the app sees. A `@TenantId` field is
    optional, added only when the app's logic needs it. The `entities-and-persistence` skill
    has the full table.
 
 3. Call the tool titled `Application Service Create Application If Not Exist` with
-   `{"name": ..., "description": ..., "tenantPerUser": true}`. The call is idempotent — if
-   the application already exists it is returned unchanged, **including its existing
-   `tenantPerUser`**: the argument only applies when the application is created, because
-   flipping it later would split the users into tenanted and untenanted halves. An
-   application that already exists with `tenantPerUser: false` is changed in the portal
-   (**Application → Settings → Tenant per user**), and only while it still has no users.
+   `{"name": ..., "description": ..., "tenantManagement": "PLATFORM"}`. The call is
+   idempotent — if the application already exists it is returned unchanged, **including
+   its existing `tenantManagement`**: the argument only applies when the application is
+   created, because changing it later would split the users into tenanted and untenanted
+   halves. An application that already exists with `TENANT_ADMINISTRATORS` is changed in
+   the portal (**Application → Settings → Tenants**), and only while it still has no users.
 4. From the result, record `id` (the server-minted slug of the name, e.g.
    `Inventory App` → `inventory-app`) and `organizationId`. Both are needed in Step 2.
-   The result's `tenantPerUser` confirms what the application was created with.
+   The result's `tenantManagement` confirms what the application was created with.
 
 ## Step 2 — Create the Project (provisions the GitHub repository)
 

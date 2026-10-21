@@ -83,8 +83,8 @@ Consequences worth stating to a user:
 ## Checking a deployment
 
 Call the MCP tool titled `Project Service Find Deployment` with
-`{"projectId": "<project id>"}` (Kinotic OS tool names are opaque hashes — always resolve
-by title from the tool listing). It returns `null` when the project has never deployed.
+`{"projectId": "<project id>"}` (Kinotic OS tool names are opaque hashes — pick the tool
+whose description starts with that title). It returns `null` when the project has never deployed.
 
 ```json
 {

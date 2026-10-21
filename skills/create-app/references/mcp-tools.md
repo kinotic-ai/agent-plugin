@@ -7,10 +7,15 @@ secured by OAuth 2.1. Behavior common to every tool:
   the base-36 XXH3-128 of `<zone>~<package>.<ServiceName>/<functionName>` (≤ 25 chars of
   `[0-9a-z]`), e.g.
   `management-api~org.kinotic.management.api.services.ProjectService/findById` hashes
-  to something like `5nwldv2gqljeygvmd1ywjl2z7`. Resolve tools from `tools/list` by
-  their human-readable `title` (the titles used below), then call the listed `name`.
-  A stale or invented name fails as a JSON-RPC protocol error (`-32602`,
-  `Unknown tool: <name>`) — not as a tool result.
+  to something like `5nwldv2gqljeygvmd1ywjl2z7`. **Pick a tool by its description**:
+  every description begins with the tool's title and a colon
+  (`Application Service Count: Returns the number of entities available.`), and the
+  titles used below are those prefixes. Match the whole prefix, service half included —
+  a function inherited from the CRUD base (`Count`, `Find All`, `Save`, …) has the same
+  text after the colon on every service, so only the prefix says whose applications,
+  projects or tenants it reads. If the tools are deferred, search for the title's words
+  (`Application Service Count`). A stale or invented name fails as a JSON-RPC protocol
+  error (`-32602`, `Unknown tool: <name>`) — not as a tool result.
 - **Results are raw JSON in a single text content block.** The tool result contains one
   `text` item whose text is the JSON serialization of the service's return value — parse
   it. An empty list result is the literal text `[]`, and a `null` result is the literal
@@ -30,20 +35,29 @@ secured by OAuth 2.1. Behavior common to every tool:
 
 ## The full tool surface
 
-Both services carry a type-level `@McpTool`, so **every** function on them is a tool,
-including the ones inherited from the CRUD hierarchy. Beyond the tools documented below
-that is:
+Four services carry a type-level `@McpTool`, so **every** function on them is a tool:
+
+| Title prefix | Service |
+|---|---|
+| `Application Service` | The organization's applications |
+| `Project Service` | Projects, their GitHub repos and deployments |
+| `Tenant Service` | The tenants of the organization's applications |
+| `Owned Oidc Configuration Service` | The organization's own sign-in providers |
+
+The first three also expose the functions they inherit from the CRUD hierarchy:
 
 | Inherited from | Tools |
 |---|---|
 | `CrudService` | `… Save`, `… Save Sync`, `… Find By Id`, `… Count`, `… Delete By Id`, `… Delete By Id Sync`, `… Find All`, `… Search`, `… Sync Index` |
 | `IdentifiableCrudService` | `… Create`, `… Create Sync` |
-| `ApplicationScopedCrudService` (ProjectService only) | `Project Service Count For Application`, `Project Service Find All For Application` |
+| `ApplicationScopedCrudService` (Project and Tenant services) | `… Count For Application`, `… Find All For Application` |
 
-`Project Service Find All For Application` with `{"applicationId": ..., "pageable": ...}`
-is the way to list an application's projects. Stick to the documented tools for the
-onboarding workflow, and never call a destructive tool unless the user explicitly asks
-for that exact operation:
+`Application Service Count` answers how many applications the organization has, and
+`Application Service Find All` lists them a page at a time (the `pageable` argument's
+shape is in the tool's input schema). `Project Service Find All For Application` with
+`{"applicationId": ..., "pageable": ...}` lists an application's projects. Stick to the
+documented tools for the onboarding workflow, and never call a destructive tool unless
+the user explicitly asks for that exact operation:
 
 - `Application Service Delete By Id` is guarded server-side
   (`Cannot delete an application with projects in it.`).
@@ -64,23 +78,29 @@ Idempotent.
 Arguments:
 
 ```json
-{ "name": "Inventory App", "description": "Tracks warehouse inventory", "tenantPerUser": true }
+{ "name": "Inventory App", "description": "Tracks warehouse inventory", "tenantManagement": "PLATFORM" }
 ```
 
 Any human-readable `name` works — the server slugifies it into the id (lowercase
 letters, digits, interior dashes). It fails only when the name is blank, slugifies to
 nothing (all punctuation), or slugifies to the platform-reserved id `system-api`.
 
-`tenantPerUser` decides whether each user of the application gets an isolated tenant
-(`true`) or every user shares one dataset (`false`) — see the create-app workflow for
-choosing it, and the entities-and-persistence skill for the entity side that must agree.
+`tenantManagement` decides who creates the application's tenants:
+
+| Value | Meaning |
+|---|---|
+| `PLATFORM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it |
+| `TENANT_ADMINISTRATORS` (also what `null` means) | A customer signing up, or the organization in the portal, creates a tenant, and its administrator decides who joins. Users created into no tenant have none and share the application's data |
+
+See the create-app workflow for choosing it, and the entities-and-persistence skill for
+the entity side that must agree.
 
 It applies **only when the application is created**. An idempotent call that returns an
-existing application returns it with the `tenantPerUser` it already had; the argument is
-ignored. Changing it afterwards is a portal action (Application → Settings → **Tenant per
-user**) and only assigns tenants to users created from then on, so it is settled before the
-application has users. `Application Service Save` can also write it, but it replaces the
-whole document and is `destructiveHint: true`; prefer the portal.
+existing application returns it with the `tenantManagement` it already had; the argument
+is ignored. Changing it afterwards is a portal action (Application → Settings →
+**Tenants**), and `PLATFORM` only assigns tenants to users created from then on, so it is
+settled before the application has users. `Application Service Save` can also write it,
+but it replaces the whole document and is `destructiveHint: true`; prefer the portal.
 
 Result (Application):
 
@@ -90,29 +110,40 @@ Result (Application):
   "organizationId": "acme",
   "name": "Inventory App",
   "description": "Tracks warehouse inventory",
-  "oidcConfigurationIds": null,
-  "tenantPerUser": true,
-  "updated": 1753747200000
+  "tenantManagement": "PLATFORM",
+  "primaryUiId": null,
+  "primaryUiUrl": null,
+  "socialProviders": [],
+  "updated": "2026-07-29T00:00:00.000Z"
 }
 ```
 
-The create-app workflow always passes `tenantPerUser: true`. A result with `false` means
-the application already existed with shared data; tell the user before continuing.
+The create-app workflow always passes `tenantManagement: "PLATFORM"`. A result with
+`TENANT_ADMINISTRATORS` means the application already existed with administrator-managed
+tenants; tell the user before continuing.
 
 `id` is the server-minted slug of `name`. `organizationId` is derived from the
 authenticated user — pass both into project creation.
 
-### `Application Service Get Oidc Configurations`
+### `Application Service Get Login Providers`
 
-Read-only. Returns the **enabled** OIDC configurations registered on an application
-(used by the frontend skill when wiring login). Returns `[]` when the application has
-none. Errors with `Application not found: <applicationId>` when the id does not name an
-application in the caller's organization.
+Read-only. Returns the sign-in providers the application's login offers besides email and
+password, in the order to present them (used by the frontend skill when wiring login).
+Returns `[]` when the application's login offers password only. Fails when the id does
+not name an application in the caller's organization.
 
 Arguments:
 
 ```json
 { "applicationId": "inventory-app" }
+```
+
+Result (a list of LoginProviderSummary):
+
+```json
+[
+  { "configurationId": "…", "name": "Google", "provider": "GOOGLE", "type": "APP_SOCIAL" }
+]
 ```
 
 ## ProjectService
@@ -165,7 +196,7 @@ Result (Project) — fields beyond the input:
   "repoId": 123456789,
   "repoDefaultBranch": "main",
   "repoConnectionStatus": "CONNECTED",
-  "updated": 1753747200000
+  "updated": "2026-07-29T00:00:00.000Z"
 }
 ```
 
@@ -235,8 +266,8 @@ Result (ProjectDeployment), `id` always equal to the project id:
   "commitSha": "9f2c1ab…",
   "lastJobRunId": "…",
   "status": { "type": "RUNNING", "message": null },
-  "created": 1753747200000,
-  "updated": 1753747200000
+  "created": "2026-07-29T00:00:00.000Z",
+  "updated": "2026-07-29T00:00:00.000Z"
 }
 ```
 
