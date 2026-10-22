@@ -6,7 +6,7 @@ description: >
   the Kinotic MCP tools, wait for the GitHub repository to be provisioned from the
   template, connect to GitHub, clone the repository, and verify the scaffold. Use when
   the user wants to create, start, bootstrap, or set up a new Kinotic app or project,
-  sign up for Kinotic OS, or connect Claude to Kinotic OS.
+  sign up for Kinotic OS, or connect the coding agent to Kinotic OS.
 ---
 
 # Creating a Kinotic Application
@@ -35,21 +35,25 @@ descriptions start with `Application Service` / `Project Service` (e.g.
 is already connected — skip to Step 1.
 
 If the tools are missing, the user has not authenticated the Kinotic OS MCP server
-yet. In `/mcp` it is listed as `kinotic-os` when the plugin's own entry is used, or
-under the name given to a manually added server (`kinotic-os-test` in the README's
-example) — the steps below say `kinotic-os`; substitute that name. Ask whether they already have a Kinotic OS account, then walk them through the
+yet. The plugin's own server is named `kinotic-os`; a manually added server carries the
+name it was given (`kinotic-os-test` in the README's example) — the steps below say
+`kinotic-os`; substitute that name. Ask whether they already have a Kinotic OS account, then walk them through the
 matching path — the whole flow happens in their browser, so narrate what they will see:
 
-1. Tell the user to run `/mcp`, select `kinotic-os`, and authenticate. A browser opens
-   on the Kinotic OS **portal** login page — the one with a "New to Kinotic?
+1. Tell the user to start the server's sign-in from their coding agent:
+   - **Claude Code** — run `/mcp`, select `kinotic-os`, and authenticate.
+   - **Codex** — installing the plugin prompts for sign-in; to sign in again, run
+     `codex mcp login kinotic-os` in a terminal.
+
+   A browser opens on the Kinotic OS **portal** login page — the one with a "New to Kinotic?
    **Create an organization**" link. The plugin targets the Kinotic OS dev server
    (`https://dev-api.kinotic.ai/mcp`, portal `https://dev-portal.kinotic.ai`); for a
    different Kinotic OS see "Other servers" below.
 2. **Existing account** — sign in, then on the consent screen ("Authorize …", with a
    "Verified as <host>" line) click **Approve**. **Deny** is a real decision that
-   returns a denial to Claude Code — the tools will not appear. If the page shows
-   "Authorization request unavailable", the link is stale: re-run `/mcp` to mint a
-   fresh one.
+   returns a denial to the coding agent — the tools will not appear. If the page shows
+   "Authorization request unavailable", the link is stale: start the sign-in again to
+   mint a fresh one.
 3. **No account yet** — click **Create an organization** on the login page:
    - Sign up with GitHub — that is the only sign-up path (Kinotic projects are backed
      by GitHub repositories, so the organization starts from the user's GitHub
@@ -65,9 +69,9 @@ matching path — the whole flow happens in their browser, so narrate what they 
      sudo email code or a 2FA prompt — normal, not a Kinotic error.
    - Signup ends on the Applications page. It does **not** return to the OAuth consent
      screen — the authorization request is not resumed. Tell the user to go back to
-     Claude Code and run `/mcp` → `kinotic-os` → authenticate again; now signed in,
-     they land directly on the consent screen — click **Approve**.
-4. Back in Claude Code, confirm the kinotic-os tools are now available before moving on.
+     their coding agent and start the sign-in again; now signed in, they land directly
+     on the consent screen — click **Approve**.
+4. Back in the coding agent, confirm the kinotic-os tools are now available before moving on.
 
 If tools still do not appear right after a server restart, wait and retry: the service
 directory publishes tools shortly after startup, not instantly.
@@ -76,14 +80,20 @@ The user can review or revoke this connection later under **Account → Connecte
 in the portal.
 
 **Other servers.** A staging, self-hosted, or local Kinotic OS is added as its own MCP
-server: `claude mcp add -s user --transport http kinotic-os-test <url>` (`-s user` so it
-follows the user into every project directory) — the tools work the same from either.
+server — the tools work the same from either:
+- **Claude Code** — `claude mcp add -s user --transport http kinotic-os-test <url>`
+  (`-s user` so it follows the user into every project directory).
+- **Codex** — `codex mcp add kinotic-os-test --url <url>`, then
+  `codex mcp login kinotic-os-test`.
+
 Two settings on that server gate this, set by whoever runs it (Kinotic Cloud has them
-in place): the server must list Claude Code's client-metadata URL in
-`kinotic.domain.oauth.allowedClientIds` (there is no dynamic client registration), and
-a server whose OAuth surface is reached at a different host than the browser uses
-(e.g. localhost behind a tunnel) must set `kinotic.domain.oauth.issuerBaseUrl`.
-Missing either looks like "the server never appeared" after OAuth.
+in place): the server must list the coding agent's client-metadata URL in
+`kinotic.domain.oauth.allowedClientIds` (there is no dynamic client registration) —
+`https://claude.ai/oauth/claude-code-client-metadata` for Claude Code,
+`https://chatgpt.com/oauth/codex/client.json` for Codex — and a server whose OAuth
+surface is reached at a different host than the browser uses (e.g. localhost behind a
+tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks like
+"the server never appeared" after OAuth.
 
 ## Step 1 — Create the Application
 

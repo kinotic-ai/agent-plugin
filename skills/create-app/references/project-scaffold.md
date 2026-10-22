@@ -83,7 +83,7 @@ The Kinotic CLI ships as a project dependency with a `generate` script wired in
 `package.json` — repository classes are generated with `bun run generate`, entirely
 locally. Server synchronization happens inside the deployment (`kinotic sync` runs in the
 build VM on every push); the globally-installed CLI (`kinotic login`, `kinotic sync`) is a
-human-operator tool that Claude does not use.
+human-operator tool that the coding agent does not use.
 
 ## `.config/kinotic.config.ts`
 
