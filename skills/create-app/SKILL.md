@@ -44,6 +44,7 @@ matching path — the whole flow happens in their browser, so narrate what they 
    - **Claude Code** — run `/mcp`, select `kinotic-os`, and authenticate.
    - **Codex** — installing the plugin prompts for sign-in; to sign in again, run
      `codex mcp login kinotic-os` in a terminal.
+   - **Grok Build** — run `/mcps`, select `kinotic-os`, and press `i` to authenticate.
 
    A browser opens on the Kinotic OS **portal** login page — the one with a "New to Kinotic?
    **Create an organization**" link. The plugin targets the Kinotic OS dev server
@@ -85,12 +86,21 @@ server — the tools work the same from either:
   (`-s user` so it follows the user into every project directory).
 - **Codex** — `codex mcp add kinotic-os-test --url <url>`, then
   `codex mcp login kinotic-os-test`.
+- **Grok Build** — add the server to `~/.grok/config.toml` with Kinotic's client ID for
+  Grok Build, then authenticate it from `/mcps`:
+
+  ```toml
+  [mcp_servers.kinotic-os-test]
+  url = "<url>"
+  oauth_client_id = "https://kinotic.ai/oauth/grok-build-client.json"
+  ```
 
 Two settings on that server gate this, set by whoever runs it (Kinotic Cloud has them
 in place): the server must list the coding agent's client-metadata URL in
 `kinotic.domain.oauth.allowedClientIds` (there is no dynamic client registration) —
 `https://claude.ai/oauth/claude-code-client-metadata` for Claude Code,
-`https://chatgpt.com/oauth/codex/client.json` for Codex — and a server whose OAuth
+`https://chatgpt.com/oauth/codex/client.json` for Codex,
+`https://kinotic.ai/oauth/grok-build-client.json` for Grok Build — and a server whose OAuth
 surface is reached at a different host than the browser uses (e.g. localhost behind a
 tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks like
 "the server never appeared" after OAuth.

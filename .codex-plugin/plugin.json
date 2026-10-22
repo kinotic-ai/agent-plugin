@@ -1,0 +1,48 @@
+{
+  "name": "kinotic",
+  "version": "0.7.0",
+  "description": "Build Kinotic applications: onboard onto Kinotic OS, create apps and projects through the Kinotic MCP server, and develop, deploy, and run entities, services, and frontends",
+  "author": {
+    "name": "Kinotic AI",
+    "url": "https://kinotic.ai"
+  },
+  "homepage": "https://kinotic.ai",
+  "repository": "https://github.com/kinotic-ai/agent-plugin",
+  "license": "Apache-2.0",
+  "keywords": [
+    "kinotic",
+    "typescript",
+    "bun",
+    "persistence",
+    "microservices",
+    "deployment"
+  ],
+  "skills": "./skills/",
+  "mcpServers": {
+    "kinotic-os": {
+      "type": "http",
+      "url": "https://dev-api.kinotic.ai/mcp"
+    }
+  },
+  "interface": {
+    "displayName": "Kinotic",
+    "shortDescription": "Build, deploy, and run Kinotic applications",
+    "longDescription": "Connect to Kinotic OS, create an application and its GitHub-backed project, and develop entities, services, and frontends that deploy on every push to the default branch.",
+    "developerName": "Kinotic AI",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://kinotic.ai",
+    "privacyPolicyURL": "https://kinotic.ai/privacy",
+    "termsOfServiceURL": "https://kinotic.ai/terms",
+    "defaultPrompt": [
+      "Create a new Kinotic app for tracking customer orders.",
+      "Add an entity to my Kinotic project and deploy it.",
+      "Why isn't my Kinotic service running?"
+    ]
+  },
+  "extensions": {
+    "com.openai": {
+      "onboardingSkill": "./skills/create-app/SKILL.md"
+    }
+  }
+}

@@ -1,14 +1,25 @@
 # Kinotic Agent Plugin
 
-Build [Kinotic](https://kinotic.ai) applications with Claude or OpenAI's Codex. The plugin
-connects the coding agent to Kinotic OS through the platform's MCP server and teaches it
-the Kinotic programming model, so a user can go from nothing to a working application:
-sign up, create an Application and Project (Kinotic OS provisions the GitHub repository),
-and develop entities, services, and frontends.
+Build [Kinotic](https://kinotic.ai) applications with Claude Code, OpenAI's Codex, or xAI's
+Grok Build. The plugin connects the coding agent to Kinotic OS through the platform's MCP
+server and teaches it the Kinotic programming model, so a user can go from nothing to a
+working application: sign up, create an Application and Project (Kinotic OS provisions the
+GitHub repository), and develop entities, services, and frontends.
 
-One repository serves both hosts from the same `skills/`: Claude reads
-`.claude-plugin/plugin.json`, and Codex reads the Agent Plugins manifest `plugin.json` and
-its `mcp.json`. Both list the plugin in `.claude-plugin/marketplace.json`.
+One repository serves every host from the same `skills/` and `commands/`; each host reads
+its own manifest, which declares the `kinotic-os` MCP server:
+
+| Host | Manifest |
+|---|---|
+| Claude Code, Claude desktop | `.claude-plugin/plugin.json` |
+| Codex (CLI, IDE extension, ChatGPT desktop app) | `.codex-plugin/plugin.json` |
+| Grok Build | `.grok-plugin/plugin.json` |
+
+Grok Build's manifest also names the OAuth client it signs in with,
+`https://kinotic.ai/oauth/grok-build-client.json`, because Grok Build has no client
+metadata document of its own. The plugin has no root `plugin.json` or `.mcp.json`: Grok
+Build would read a root `plugin.json` in place of its own manifest, and Claude Code loads
+a root `.mcp.json` in addition to its manifest.
 
 ## Installation
 
@@ -29,9 +40,28 @@ codex plugin add kinotic@kinotic
 In the ChatGPT desktop app, the marketplace then appears as a source in the Plugins
 Directory, where the plugin can be installed instead of running `codex plugin add`.
 
-For local development, add the marketplace from a checkout path instead
-(`/plugin marketplace add /path/to/agent-plugin` or
-`codex plugin marketplace add /path/to/agent-plugin`).
+**Grok Build**
+
+```
+grok plugin install kinotic-ai/agent-plugin --trust
+```
+
+For local development, install from a checkout path instead
+(`/plugin marketplace add /path/to/agent-plugin`,
+`codex plugin marketplace add /path/to/agent-plugin`, or
+`grok plugin install /path/to/agent-plugin --trust`).
+
+**ChatGPT, Grok, and Grok Bot**
+
+The chat apps connect to the Kinotic OS MCP server directly and get its tools without the
+plugin's skills. Add `https://dev-api.kinotic.ai/mcp` as a custom MCP server:
+
+- **ChatGPT** — [chatgpt.com/plugins](https://chatgpt.com/plugins) → **+** → **Add custom
+  MCP server**.
+- **Grok** — [grok.com/connectors](https://grok.com/connectors) → **New Connector** →
+  **Custom**. If Grok asks for a Client ID, enter `https://cursor.com/oauth/mcp-client.json`,
+  leave the secret blank, and choose token auth method **none**.
+- **Grok Bot** — add the URL as a custom MCP server under **Connect Apps**.
 
 ## Configuration
 
@@ -51,6 +81,14 @@ endpoint as its own MCP server alongside the plugin:
 - **Claude desktop app** — Settings → Connectors → Add custom connector (`https` only)
 - **Codex** — `codex mcp add kinotic-os-test --url <your endpoint URL>`, then
   `codex mcp login kinotic-os-test`.
+- **Grok Build** — add the server to `~/.grok/config.toml` with Kinotic's Grok Build
+  client ID:
+
+  ```toml
+  [mcp_servers.kinotic-os-test]
+  url = "<your endpoint URL>"
+  oauth_client_id = "https://kinotic.ai/oauth/grok-build-client.json"
+  ```
 
 The skills pick the Kinotic OS tools by the title each description begins with, so they
 work the same through a manually added server. Two server-side settings gate a non-cloud
@@ -58,7 +96,10 @@ server — whoever runs that server sets them; on Kinotic Cloud they are already
 place: it must list the coding agent's client-metadata URL in
 `kinotic.domain.oauth.allowedClientIds` (there is no dynamic client registration) —
 `https://claude.ai/oauth/claude-code-client-metadata` for Claude Code,
-`https://chatgpt.com/oauth/codex/client.json` for Codex — and when its OAuth surface is
+`https://chatgpt.com/oauth/codex/client.json` for Codex,
+`https://kinotic.ai/oauth/grok-build-client.json` for Grok Build,
+`https://chatgpt.com/oauth/client.json` for ChatGPT, and
+`https://cursor.com/oauth/mcp-client.json` for Grok and Grok Bot — and when its OAuth surface is
 reached at a different host than the browser uses (localhost behind a tunnel), it must
 set `kinotic.managementServer.issuerBaseUrl` — missing either makes OAuth fail as if the
 server never appeared.
@@ -66,7 +107,8 @@ server never appeared.
 After installing, sign in to the Kinotic OS server (`kinotic-os`, or the name you gave a
 manually added one such as `kinotic-os-test`). In Claude Code, run `/mcp`, select the
 server, and authenticate. Codex prompts for sign-in when the plugin is installed; run
-`codex mcp login kinotic-os` to sign in again. The browser opens the Kinotic OS OAuth
+`codex mcp login kinotic-os` to sign in again. In Grok Build, run `/mcps`, select the
+server, and press `i`. The browser opens the Kinotic OS OAuth
 flow — sign up from the login page if you have no account, then approve the consent
 screen. The coding agent stores and refreshes the token automatically.
 
@@ -80,7 +122,7 @@ screen. The coding agent stores and refreshes the token automatically.
 | `services` skill | Publishing services with `@Publish`, zones and addressing, the organization scope a service host needs, service proxies, streaming |
 | `frontend` skill | How the UI resolves the server URL, the UI build contract every published UI must honor, connecting browser and Node clients, authentication recipes, application users and OIDC, calling services from the UI |
 | `deploying` skill | Push-to-deploy: what the platform actually runs, the deployment job, checking status with `Project Service Find Deployment`, diagnosing failures, machine identities, what can be run locally |
-| `/kinotic:new-app` command | Claude Code's deterministic entry point that runs the create-app workflow; Codex offers `create-app` as the plugin's setup skill |
+| `new-app` command | Deterministic entry point that runs the create-app workflow: `/kinotic:new-app` in Claude Code, `/new-app` in Grok Build; Codex offers `create-app` as the plugin's setup skill |
 
 ## How a Kinotic app fits together
 
@@ -115,16 +157,19 @@ which is how the skills tell tools apart.
 Requires a running Kinotic OS (`kinotic-server`), a test GitHub org with the Kinotic
 GitHub App installable, and a browser.
 
-Run it in Claude Code and again in Codex.
+Run it in Claude Code, Codex, and Grok Build.
 
 1. Add the local server alongside the plugin:
    `claude mcp add -s user --transport http kinotic-os-test http://localhost:58503/mcp`
-   or `codex mcp add kinotic-os-test --url http://localhost:58503/mcp`
+   or `codex mcp add kinotic-os-test --url http://localhost:58503/mcp`, or the
+   `~/.grok/config.toml` entry above with `url = "http://localhost:58503/mcp"`
    (a localhost server needs `kinotic.managementServer.issuerBaseUrl` + an
    `allowedClientIds` entry for the OAuth flow to complete).
-2. `/mcp` → `kinotic-os-test`, or `codex mcp login kinotic-os-test` → complete the OAuth
-   flow, including one pass as a brand-new signup.
-3. Ask the agent to create an app (or, in Claude Code, run `/kinotic:new-app TestApp`):
+2. `/mcp` → `kinotic-os-test`, `codex mcp login kinotic-os-test`, or Grok's `/mcps` →
+   `kinotic-os-test` → `i` → complete the OAuth flow, including one pass as a brand-new
+   signup.
+3. Ask the agent to create an app (or run `/kinotic:new-app TestApp`, `/new-app TestApp` in
+   Grok Build):
    - Application and Project created; correct ids recorded.
    - With GitHub unlinked: the "GitHub is not linked" error is surfaced with dashboard
      instructions, and the same call succeeds after linking.
