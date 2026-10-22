@@ -1,13 +1,13 @@
 {
   "name": "kinotic",
-  "version": "0.6.8",
+  "version": "0.7.0",
   "description": "Build Kinotic applications with Claude: onboard onto Kinotic OS, create apps and projects through the Kinotic MCP server, and develop, deploy, and run entities, services, and frontends",
   "author": {
     "name": "Kinotic AI",
     "url": "https://kinotic.ai"
   },
   "homepage": "https://kinotic.ai",
-  "repository": "https://github.com/kinotic-ai/claude-plugin",
+  "repository": "https://github.com/kinotic-ai/agent-plugin",
   "license": "Apache-2.0",
   "keywords": [
     "kinotic",
