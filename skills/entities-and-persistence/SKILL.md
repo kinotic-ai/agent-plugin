@@ -216,21 +216,21 @@ their own rows, that takes two settings that must agree, and neither works alone
 | Application `tenantManagement` | Entity | Result |
 |---|---|---|
 | `TENANT_ADMINISTRATORS` | `MultiTenancyType.NONE` | One shared dataset — **every user sees every other user's rows** |
-| `PLATFORM` | `MultiTenancyType.NONE` | Every user sees the rows — right for data the whole app shares, like a product catalog |
+| `SYSTEM` | `MultiTenancyType.NONE` | Every user sees the rows — right for data the whole app shares, like a product catalog |
 | `TENANT_ADMINISTRATORS` | `MultiTenancyType.SHARED` | Users created into no tenant have none — their saves fail with `tenantId cannot be null or blank for shared multi tenancy` |
-| `PLATFORM` | `MultiTenancyType.SHARED` | Each user isolated in their own tenant |
+| `SYSTEM` | `MultiTenancyType.SHARED` | Each user isolated in their own tenant |
 
 Under `TENANT_ADMINISTRATORS` a user gets a tenant only when one is created for it — by a
 customer signing up, by the organization in the portal, or through `Tenant Service Create
 Tenant If Not Exist` — and the tenant's users share its rows.
 
-Get this decided **before** the first users exist, because `PLATFORM` only assigns a
+Get this decided **before** the first users exist, because `SYSTEM` only assigns a
 tenant id to users created while it is in force — existing users are never backfilled,
 and they will fail every write to a `SHARED` entity afterwards. It is set on the
 Application, not on the project: `Application Service Create Application If Not Exist`
 takes it as an argument at creation, and afterwards it changes only in the portal
 (Application → Settings → **Tenants**). The create-app skill creates every application
-with `tenantManagement: "PLATFORM"`, so in an app it created each entity chooses:
+with `tenantManagement: "SYSTEM"`, so in an app it created each entity chooses:
 `SHARED` for rows private to each user, `NONE` for rows every user sees.
 
 ```typescript

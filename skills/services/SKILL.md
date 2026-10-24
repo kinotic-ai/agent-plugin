@@ -186,7 +186,7 @@ resource name and routes nowhere. The zones:
 | `app.<orgId>.<appId>` | The application's own services |
 | `app-api` | Platform data plane for applications (entity repositories live here) |
 | `management-api` | Platform management services (organization scope) |
-| `system-api` | Platform-internal services (system participants only) |
+| `system-api` | The system's own services (system participants only) |
 
 An address without a `~` carries no zone at all and is reachable only by system
 participants — never what an application wants. The gateway validates the zone on every

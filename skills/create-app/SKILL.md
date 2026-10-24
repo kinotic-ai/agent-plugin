@@ -120,7 +120,7 @@ tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks 
    supported yet, and that it's coming soon 🙂. Ask whether they want to continue with an
    app people sign in to. Do not create the application unless they do.
 
-   If they say **yes**, create the application with `tenantManagement: "PLATFORM"`, which
+   If they say **yes**, create the application with `tenantManagement: "SYSTEM"`, which
    gives every user a tenant of their own. Each entity then decides who sees its rows:
    `@Entity(MultiTenancyType.SHARED)` keeps each user's rows private to that user, and
    `@Entity(MultiTenancyType.NONE)` is data every user of the app sees. A `@TenantId` field is
@@ -128,7 +128,7 @@ tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks 
    has the full table.
 
 3. Call the tool titled `Application Service Create Application If Not Exist` with
-   `{"name": ..., "description": ..., "tenantManagement": "PLATFORM"}`. The call is
+   `{"name": ..., "description": ..., "tenantManagement": "SYSTEM"}`. The call is
    idempotent — if the application already exists it is returned unchanged, **including
    its existing `tenantManagement`**: the argument only applies when the application is
    created, because changing it later would split the users into tenanted and untenanted

@@ -78,7 +78,7 @@ Idempotent.
 Arguments:
 
 ```json
-{ "name": "Inventory App", "description": "Tracks warehouse inventory", "tenantManagement": "PLATFORM" }
+{ "name": "Inventory App", "description": "Tracks warehouse inventory", "tenantManagement": "SYSTEM" }
 ```
 
 Any human-readable `name` works — the server slugifies it into the id (lowercase
@@ -89,7 +89,7 @@ nothing (all punctuation), or slugifies to the platform-reserved id `system-api`
 
 | Value | Meaning |
 |---|---|
-| `PLATFORM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it |
+| `SYSTEM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it |
 | `TENANT_ADMINISTRATORS` (also what `null` means) | A customer signing up, or the organization in the portal, creates a tenant, and its administrator decides who joins. Users created into no tenant have none and share the application's data |
 
 See the create-app workflow for choosing it, and the entities-and-persistence skill for
@@ -98,7 +98,7 @@ the entity side that must agree.
 It applies **only when the application is created**. An idempotent call that returns an
 existing application returns it with the `tenantManagement` it already had; the argument
 is ignored. Changing it afterwards is a portal action (Application → Settings →
-**Tenants**), and `PLATFORM` only assigns tenants to users created from then on, so it is
+**Tenants**), and `SYSTEM` only assigns tenants to users created from then on, so it is
 settled before the application has users. `Application Service Save` can also write it,
 but it replaces the whole document and is `destructiveHint: true`; prefer the portal.
 
@@ -110,7 +110,7 @@ Result (Application):
   "organizationId": "acme",
   "name": "Inventory App",
   "description": "Tracks warehouse inventory",
-  "tenantManagement": "PLATFORM",
+  "tenantManagement": "SYSTEM",
   "primaryUiId": null,
   "primaryUiUrl": null,
   "socialProviders": [],
@@ -118,7 +118,7 @@ Result (Application):
 }
 ```
 
-The create-app workflow always passes `tenantManagement: "PLATFORM"`. A result with
+The create-app workflow always passes `tenantManagement: "SYSTEM"`. A result with
 `TENANT_ADMINISTRATORS` means the application already existed with administrator-managed
 tenants; tell the user before continuing.
 
@@ -206,7 +206,7 @@ Result (Project) — fields beyond the input:
 |---|---|---|
 | `CONNECTED` | Repo provisioned and baseline committed | Proceed |
 | `INITIALIZATION_FAILED` | Repo exists but the baseline commit failed | Call `Project Service Retry Repo Initialization` |
-| `DISCONNECTED` | GitHub revoked the platform's access to the repo | User must re-link in the portal |
+| `DISCONNECTED` | GitHub revoked the system's access to the repo | User must re-link in the portal |
 
 Errors:
 

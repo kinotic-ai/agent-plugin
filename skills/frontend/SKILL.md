@@ -423,12 +423,12 @@ an identity at a provider never grants access by itself. A user comes from one o
 - **First sign-in through the organization's own provider.** An
   `ApplicationOidcConfiguration` with `createUserOnSignIn` on turns an identity it verifies
   that no user is bound to into a user, from the provider's verified email and name — only
-  while the application's `tenantManagement` is `PLATFORM` (the default is
+  while the application's `tenantManagement` is `SYSTEM` (the default is
   `TENANT_ADMINISTRATORS`), which gives each such user a tenant of its own. A
   `TenantOidcConfiguration` with `createUserOnSignIn` does the same into its tenant, at
   that tenant's login.
 
-The platform's shared Google and Microsoft registrations (named in the application's
+The system's shared Google and Microsoft registrations (named in the application's
 `socialProviders`) create no users: they sign in only a user already bound to that
 identity. An identity with no user and nothing to create one ends at `no_account`; one
 whose email the application already holds under another method ends at `account_exists`.
