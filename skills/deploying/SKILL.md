@@ -18,6 +18,27 @@ Docs: <https://kinotic.ai/apps/deployment/push-to-deploy>.
 Only default-branch pushes deploy. Pushes to other branches, branch deletions, and tag
 operations are ignored.
 
+## Pushing
+
+Push with a token Kinotic issues, on GitHub and a local Kinotic's Git server alike — never
+with `gh` or the user's own GitHub credentials, which cannot reach a local Kinotic's
+repositories. Before every push, call the tool titled
+`Project Repo Credential Service Issue Write Token` with `{"projectId": "<project id>"}`; a
+token is good for an hour, so never reuse one from an earlier push or the clone. Present it
+as the password of the user `x-access-token`, through a credential helper scoped to the one
+command:
+
+```bash
+KINOTIC_REPO_TOKEN='<token>' git -c credential.helper= \
+  -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$KINOTIC_REPO_TOKEN"; }; f' \
+  push origin <defaultBranch>
+```
+
+The empty `credential.helper=` comes first so no stored helper (the macOS keychain, a
+credential manager) saves the token. Never put the token in the remote URL, a file or git
+config, and never echo it back to the user. Commits are authored by the user's own
+`git config user.name` and `user.email`.
+
 ## What the platform actually runs
 
 | Artifact | Status |
@@ -162,13 +183,11 @@ skill for the full table):
   does not mint (it provisions application-scope machines). Push to run your services.
 
 So the working loop is: edit → `bun run generate` (when entities changed) → export from
-`packages/domain/index.ts` → `bun run type-check` → commit → push (with a fresh token from
-`Project Repo Credential Service Issue Write Token`, as the `create-app` skill's Step 3 shows)
-→ `findDeployment` until `RUNNING`. Verify behavior by calling the deployed service through a proxy from a
+`packages/domain/index.ts` → `bun run type-check` → commit → push (see **Pushing**) →
+`findDeployment` until `RUNNING`. Verify behavior by calling the deployed service through a proxy from a
 local script or the frontend, not by trying to host it locally.
 
 A local Kinotic (`kinotic local up`) runs the whole of Kinotic OS on the user's machine,
 deployments included, and a project works against it as against Kinotic Cloud, through its
 `kinotic-local` MCP server: push, then `findDeployment` until `RUNNING`. With more than one
-Kinotic OS server connected, every call goes to the server holding the project, chosen as the
-`create-app` skill describes.
+Kinotic OS server connected, every call goes to the server that holds the project.
