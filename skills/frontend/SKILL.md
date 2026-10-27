@@ -70,24 +70,25 @@ hand-set, and the code does not change between local and published.
 webroot or from a dev server that proxies to it. `window.location` is already the right
 answer, so a bare `Kinotic.connect()` and bare REST paths
 (`fetch('/api/auth/me', { credentials: 'include' })`) are correct, and the three variables
-stay unset. A Vite dev proxy has to forward both the REST and the WebSocket paths to the
-app server under the application's API host (the app server identifies the application by
-that hostname), and `/v1` needs `ws: true` — that is the broker path the STOMP client opens:
+stay unset. A Vite dev proxy has to forward `/api` to the app server under the application's
+API host (the app server identifies the application by that hostname), with `ws: true`, since
+the broker the STOMP client opens is at `/api/v1`. On a local Kinotic (`kinotic local up`) the
+API host is `<organizationId>--<applicationId>.apps-api.kinotic.localhost:58505`:
 
 ```typescript
 // vite.config.ts
-const APP_API_HOST = 'acme--orders.localhost:58505'   // <organizationId>--<applicationId> under the app server's API base URL
+const APP_API_HOST = 'acme--orders.apps-api.kinotic.localhost:58505'   // <organizationId>--<applicationId> under the app server's API base URL
 
 proxy: {
-    '/api': { target: 'http://localhost:58505', headers: { host: APP_API_HOST } },
-    '/v1':  { target: 'http://localhost:58505', headers: { host: APP_API_HOST }, ws: true }
+    '/api': { target: 'http://localhost:58505', headers: { host: APP_API_HOST }, ws: true }
 }
 ```
 
 Cross-origin does not push the SPA off the session cookie. The cookie is `SameSite=Lax`,
 which is sent whenever the API and the site share a site — as the application's API host
-and its sites, both under `kinotic.ai`, do in production. A published UI therefore uses the
-cookie flow (Recipe 1), cross-origin or not.
+and its sites do: both under `kinotic.ai` in production, and both under `kinotic.localhost`
+on a local Kinotic. A published UI therefore uses the cookie flow (Recipe 1), cross-origin
+or not.
 
 ## The UI build contract
 
@@ -138,7 +139,7 @@ never published — that is how shared component packages live there.
 
 For `vite dev` on a developer's machine, the UI reaches a local app server through the dev
 server itself: the three variables in the app's `.env.development` point at the dev server,
-and the dev server proxies `/api` and `/v1` to the app server under the application's API
+and the dev server proxies `/api`, the broker at `/api/v1` included, to the app server under the application's API
 host (the proxy in "How the UI knows where the server is" above), so the page and its API
 share an origin and a session cookie:
 
@@ -148,7 +149,7 @@ VITE_KINOTIC_PORT=5173
 VITE_KINOTIC_USE_SSL=false
 ```
 
-The app server's development profile admits a page on any `http://localhost` port as a UI of
+A local Kinotic (`kinotic local up`) admits a page on any `http://localhost` port as a UI of
 every application. The code does not change between local and published. The gateway sets
 the session cookie `Secure` (it is a `__Host-` cookie), so signing in over plain
 `http://localhost` relies on the browser treating localhost as a secure context: Chrome and
@@ -502,6 +503,9 @@ While the `PASSWORD` entry's `signUp` is true, the UI serves a `/signup` page an
   `POST /api/auth/app/signup/complete`, which answers `204` with the session cookie;
   then open the connection as Recipe 1's `login()` does. `400` for a token that is
   unknown, used or expired; `409` when the email already has a user, who signs in.
+  The `204` creates the account and spends the link, so when opening the connection fails
+  after it, send the person to `/login` to sign in with their new password instead of
+  leaving them on a page whose link no longer works.
 
 ```ts
 // src/kinotic/session.ts, beside Recipe 1's login()
@@ -577,7 +581,12 @@ export async function completeSignUp(token: string, password: string, displayNam
     if (!res.ok) {
         throw new Error(await errorMessage(res, 'Could not finish sign-up'))
     }
-    await connect()
+    try {
+        await connect()
+    } catch {
+        // the account exists and the link is spent, so the person continues by signing in
+        window.location.assign('/login?created=1')
+    }
 }
 ```
 
