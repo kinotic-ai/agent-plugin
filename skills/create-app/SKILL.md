@@ -148,17 +148,18 @@ tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks 
 
    Their answer picks the application's `tenantManagement`, its tenant model:
 
-   - **Each person on their own** → `SYSTEM`. Every user gets a tenant of their own, and new
-     people can sign up at the app's own login. Pick it too when everyone who uses the app
-     shares one set of data, such as a tool for the user's own team. Each entity then
-     decides who sees its rows: `@Entity(MultiTenancyType.SHARED)` keeps each user's rows
+   - **Each person on their own** → `SYSTEM`. Every user gets a tenant of their own, and when
+     the app's sign-up is turned on (a setting of each app) new people sign up at its own
+     login. Pick it too when everyone who uses the app shares one set of data, such as a
+     tool for the user's own team. Each entity then decides who sees its rows: `@Entity(MultiTenancyType.SHARED)` keeps each user's rows
      private to that user, and `@Entity(MultiTenancyType.NONE)` is data every user sees.
-   - **Groups that each share their own data** → `TENANT_ADMINISTRATORS`. Each group is a
-     tenant, which the user's organization creates (`Tenant Service Create Tenant If Not
-     Exist`, or in the portal). People join a tenant by being added to it, on the
-     application's **Users** page in the portal, or through a sign-in provider of the
-     tenant's own; the app's own login offers no sign-up. Every UI is also served for each
-     tenant at its own address, signing in that tenant's users. A
+   - **Groups that each share their own data** → `TENANT_ADMINISTRATORS`, the usual SaaS
+     model, where each customer is a tenant. Today the user's organization creates each
+     tenant (`Tenant Service Create Tenant If Not Exist`, or in the portal), and people join
+     one by being added to it on the application's **Users** page in the portal, or through
+     a sign-in provider of the tenant's own that signs people up. A customer signing itself
+     up, with its first user administering its tenant's users, is not available yet. Every
+     UI is also served for each tenant at its own address, signing in that tenant's users. A
      `@Entity(MultiTenancyType.SHARED)` entity's rows are shared by the users of one tenant
      and hidden from the others, and `@Entity(MultiTenancyType.NONE)` is data every tenant
      sees.

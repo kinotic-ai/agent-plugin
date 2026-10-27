@@ -90,8 +90,8 @@ nothing (all punctuation), or slugifies to the platform-reserved id `system-api`
 
 | Value | Meaning |
 |---|---|
-| `SYSTEM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it |
-| `TENANT_ADMINISTRATORS` (also what `null` means) | The organization creates each tenant, and a user is added to one: every user of the application belongs to the tenant it was created in, and the application's own login offers no sign-up |
+| `SYSTEM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it. The application's sign-up, when turned on, admits new people at its own login |
+| `TENANT_ADMINISTRATORS` (also what `null` means) | The organization creates each tenant, and every user of the application belongs to the tenant it was added to or signed up into through the tenant's own sign-in provider |
 
 See the create-app workflow for choosing it, and the entities-and-persistence skill for
 the entity side that must agree.
