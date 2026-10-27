@@ -45,13 +45,19 @@ These services carry a type-level `@McpTool`, so **every** function on them is a
 | `Tenant Service` | The tenants of the organization's applications |
 | `Owned Oidc Configuration Service` | The organization's own sign-in providers |
 
-The first three also expose the functions they inherit from the CRUD hierarchy:
+`Application Service` and `Project Service` also expose the functions they inherit from the CRUD hierarchy:
 
 | Inherited from | Tools |
 |---|---|
 | `CrudService` | `… Save`, `… Save Sync`, `… Find By Id`, `… Count`, `… Delete By Id`, `… Delete By Id Sync`, `… Find All`, `… Search`, `… Sync Index` |
 | `IdentifiableCrudService` | `… Create`, `… Create Sync` |
-| `ApplicationScopedCrudService` (Project and Tenant services) | `… Count For Application`, `… Find All For Application` |
+| `ApplicationScopedCrudService` (Project Service) | `… Count For Application`, `… Find All For Application` |
+
+`Tenant Service` inherits nothing: a tenant id is unique within its application, not the
+organization, so every one of its tools names the application — `Create Tenant If Not Exist`
+(`{"applicationId", "name", "description"}`), `Find By Id` and `Delete By Id`
+(`{"applicationId", "tenantId"}`), `Count For Application`, `Find All For Application` and
+`Find For Application By Prefix`.
 
 `Application Service Count` answers how many applications the organization has, and
 `Application Service Find All` lists them a page at a time (the `pageable` argument's
@@ -90,8 +96,8 @@ nothing (all punctuation), or slugifies to the platform-reserved id `system-api`
 
 | Value | Meaning |
 |---|---|
-| `SYSTEM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it |
-| `TENANT_ADMINISTRATORS` (also what `null` means) | A customer signing up, or the organization in the portal, creates a tenant, and its administrator decides who joins. Users created into no tenant have none and share the application's data |
+| `SYSTEM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it. The application's sign-up, when turned on, admits new people at its own login |
+| `TENANT_ADMINISTRATORS` (also what `null` means) | The organization creates each tenant, and every user of the application belongs to the tenant it was added to or signed up into through the tenant's own sign-in provider |
 
 See the create-app workflow for choosing it, and the entities-and-persistence skill for
 the entity side that must agree.
@@ -119,19 +125,21 @@ Result (Application):
 }
 ```
 
-The create-app workflow always passes `tenantManagement: "SYSTEM"`. A result with
-`TENANT_ADMINISTRATORS` means the application already existed with administrator-managed
-tenants; tell the user before continuing.
+The create-app workflow passes the value its Step 1 picked from the app's tenant model. A
+result with the other value means the application already existed with it; tell the user
+before continuing.
 
 `id` is the server-minted slug of `name`. `organizationId` is derived from the
 authenticated user — pass both into project creation.
 
-### `Application Service Get Login Providers`
+### `Application Service Get Login Methods`
 
-Read-only. Returns the sign-in providers the application's login offers besides email and
-password, in the order to present them (used by the frontend skill when wiring login).
-Returns `[]` when the application's login offers password only. Fails when the id does
-not name an application in the caller's organization.
+Read-only. Returns the sign-in methods the application's login offers, in the order to
+present them (used by the frontend skill when wiring the login and sign-up pages): a
+`PASSWORD` entry for the email and password form while the application has the **Email and
+password** provider, and an `OIDC` entry per provider button. `signUp` is true for a method
+new people may sign up through. Fails when the id does not name an application in the
+caller's organization.
 
 Arguments:
 
@@ -139,11 +147,12 @@ Arguments:
 { "applicationId": "inventory-app" }
 ```
 
-Result (a list of LoginProviderSummary):
+Result (a list of ApplicationLoginProvider):
 
 ```json
 [
-  { "configurationId": "…", "name": "Google", "provider": "GOOGLE", "type": "APP_SOCIAL" }
+  { "configurationId": "my-org:inventory-app", "type": "PASSWORD", "name": "Email and password", "provider": null, "signUp": true },
+  { "configurationId": "…", "type": "OIDC", "name": "Google", "provider": "google", "signUp": false }
 ]
 ```
 
