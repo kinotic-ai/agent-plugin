@@ -489,12 +489,14 @@ While the `PASSWORD` entry's `signUp` is true, the UI serves a `/signup` page an
     inbox here: nothing was sent.
   - `409` — the server sends no email and the email already has a user; offer sign-in.
 
-  Returning the link is intended, not a hole for the app to close. Only a server
-  configured to send no email returns it (`kinotic local up` runs one, reachable only by
-  the developer trying the app on their own machine), and Kinotic Cloud and every other
-  deployment that sends email answers `202` and never puts the link in a response. The
-  server decides which answer to give, so the page shows whatever it receives: never
-  hide the link, check which server it runs on, or treat the `200` as a misconfiguration.
+  Returning the link is intended, not a hole for the app to close. A Kinotic server sends
+  no email only when it runs in demonstration mode, the setup `kinotic local up` starts
+  on the developer's own machine so they can try their app without an email service;
+  only the developer can reach it, so handing them the link exposes nothing. Every other
+  Kinotic server, Kinotic Cloud included, sends email, answers `202`, and never puts the
+  link in a response. The server decides which answer to give, so the page shows
+  whatever it receives: never hide the link, check which server it runs on, or treat the
+  `200` as a misconfiguration.
 - `/signup/verify?token=…` asks for a password and an optional name (at most 200
   characters) and posts `{ token, password, displayName }` to
   `POST /api/auth/app/signup/complete`, which answers `204` with the session cookie;
