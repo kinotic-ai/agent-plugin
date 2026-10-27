@@ -253,16 +253,8 @@ repositories.
    The empty `credential.helper=` comes first so no stored helper (the macOS keychain, a
    credential manager) saves the token. Never put the token in the remote URL, a file or
    git config, and never echo it back to the user.
-3. **Push the same way**, with a fresh token from `Issue Write Token` for every push rather
-   than the one from the clone, which expires within the hour:
-
-   ```bash
-   KINOTIC_REPO_TOKEN='<token>' git -c credential.helper= \
-     -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$KINOTIC_REPO_TOKEN"; }; f' \
-     push origin <defaultBranch>
-   ```
-
-   Commits are authored by the user's own `git config user.name` and `user.email`.
+3. Push as the `deploying` skill's **Pushing** section shows, with a fresh token for every
+   push.
 
 ## Step 4 — Verify the scaffold
 
