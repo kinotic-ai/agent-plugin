@@ -112,12 +112,20 @@ server, and press `i`. The browser opens the Kinotic OS OAuth
 flow — sign up from the login page if you have no account, then approve the consent
 screen. The coding agent stores and refreshes the token automatically.
 
+A local Kinotic, started with `kinotic local up`, is added the same way as `kinotic-local`
+(`claude mcp add -s user --transport http kinotic-local http://localhost:58503/mcp`); its
+portal's Quickstart shows the command. Authenticate `kinotic-local`, and `kinotic-os` too
+if you also work on Kinotic Cloud: with both connected, the skills work against the server
+that holds a project, and ask which one to create a new application on. A local Kinotic
+keeps projects' repositories on its own Git server rather than GitHub, and the skills clone
+and push with a token Kinotic issues on either.
+
 ## What's inside
 
 | Component | Purpose |
 |---|---|
 | `kinotic-os` MCP server | Remote streamable-HTTP MCP endpoint exposing Kinotic OS platform tools (application/project creation, project lookup, deployment status) secured by OAuth 2.1 |
-| `create-app` skill | End-to-end onboarding: sign up or sign in to Kinotic OS, create the Application and its first Project, handle GitHub linking and repo provisioning, clone, verify the scaffold, first entity and first push |
+| `create-app` skill | End-to-end onboarding: sign up or sign in to Kinotic OS, create the Application and its first Project, handle repo provisioning (and GitHub linking on Kinotic Cloud), clone and push with a Kinotic-issued token, verify the scaffold, first entity and first push |
 | `entities-and-persistence` skill | Entity classes and decorators, `bun run generate`, repository API, named queries, migrations, multi-tenancy |
 | `services` skill | Publishing services with `@Publish`, zones and addressing, the organization scope a service host needs, service proxies, streaming |
 | `frontend` skill | How the UI resolves the server URL, the UI build contract every published UI must honor, connecting browser and Node clients, authentication recipes, application users and OIDC, calling services from the UI |

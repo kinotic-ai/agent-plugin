@@ -29,18 +29,19 @@ secured by OAuth 2.1. Behavior common to every tool:
   (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`). Treat
   `destructiveHint: true` (`… Save`, `… Delete By Id`, and their `Sync` twins) as
   never-call-speculatively. `openWorldHint` is `false` on everything except
-  `Project Service Retry Repo Initialization`, which reaches GitHub.
+  `Project Service Retry Repo Initialization`, which reaches the repository host.
 - Authenticated users act as their Kinotic **organization**, so the tools below operate
   on that organization's applications and projects.
 
 ## The full tool surface
 
-Four services carry a type-level `@McpTool`, so **every** function on them is a tool:
+These services carry a type-level `@McpTool`, so **every** function on them is a tool:
 
 | Title prefix | Service |
 |---|---|
 | `Application Service` | The organization's applications |
-| `Project Service` | Projects, their GitHub repos and deployments |
+| `Project Service` | Projects, their Git repositories and deployments |
+| `Project Repo Credential Service` | Tokens for writing a project's repository |
 | `Tenant Service` | The tenants of the organization's applications |
 | `Owned Oidc Configuration Service` | The organization's own sign-in providers |
 
@@ -150,11 +151,24 @@ Result (a list of LoginProviderSummary):
 
 Qualified name: `management-api~org.kinotic.management.api.services.ProjectService`
 
+### `Project Service Get Repository Host`
+
+Read-only, no arguments. Where the server keeps every project's repository:
+
+```json
+{ "type": "GITEA", "webBaseUrl": "http://localhost:3001" }
+```
+
+`type` is `GITHUB` (Kinotic Cloud: an organization links GitHub before it creates a
+project) or `GITEA` (a local Kinotic's own Git server: no linking). A repository's web page
+is `webBaseUrl` + `/` + its `repoFullName`.
+
 ### `Project Service Create Project If Not Exist`
 
-Creates a project and provisions its GitHub repository from the Kinotic template through
-the organization's GitHub App installation. Returns the existing project unchanged if
-one with the same id exists. Idempotent.
+Creates a project, provisions its repository from the Kinotic template on the repository
+host — on GitHub through the organization's GitHub App installation — and deploys the
+template's commit. Returns the existing project unchanged if one with the same id exists.
+Idempotent.
 
 The single argument key is exactly `project`:
 
@@ -175,17 +189,18 @@ The single argument key is exactly `project`:
 - `applicationId` and `name` are required. A supplied `id` is used as given; left unset
   the server derives `<applicationId>-<slugified name>` (`inventory-app-inventory-app`).
   Pass `<applicationId>-main` so an application's default project is its `main` project.
-- `name` must stay the application's name, not `main`: the GitHub repo is named from the
+- `name` must stay the application's name, not `main`: the repo is named from the
   slugified **name**, so naming the project `main` creates a repo called `main` that the
   next application in the same account collides with.
 - `organizationId` is **required**, not just constrained: omitting it fails with
   `Organization id must be set on Project`, and a mismatch fails with
   `Cannot save Project with organizationId '<x>' while authenticated as organization '<y>'`.
-- The GitHub repository is named after the slugified project **name** (truncated to
-  100 chars), created under the account holding the GitHub App installation — record
-  `repoFullName` from the result rather than deriving it.
+- The repository is named after the slugified project **name** (truncated to
+  100 chars), created under the account holding the GitHub App installation, or on a
+  local Kinotic under the organization's id — record `repoFullName` from the result rather
+  than deriving it.
 - `sourceOfTruth` accepts only `"TYPESCRIPT"` today (it is not validated server-side).
-- `repoPrivate` controls the GitHub repository visibility at creation.
+- `repoPrivate` controls the repository's visibility at creation.
 
 Result (Project) — fields beyond the input:
 
@@ -211,7 +226,7 @@ Result (Project) — fields beyond the input:
 Errors:
 
 - `"GitHub is not linked for this organization. Link GitHub before creating a project."`
-  — the organization has no GitHub App installation. The user links GitHub in the
+  (`GITHUB` only) — the organization has no GitHub App installation. The user links GitHub in the
   Kinotic OS portal (Organization settings → Integrations → GitHub → Link GitHub), then
   the same call is re-run.
 
@@ -276,8 +291,8 @@ job's failure reason when there is one. Errors with `"projectId must not be blan
 
 ### `Project Service Find by GitHub Repo`
 
-Read-only. Looks up projects in the caller's organization whose backing GitHub repo has
-the given `owner/repo` full name (function `findByRepoFullName`). Returns `[]` when none
+Read-only. Looks up projects in the caller's organization whose backing repository, on
+either host, has the given `owner/repo` full name (function `findByRepoFullName`). Returns `[]` when none
 match.
 
 Arguments:
@@ -285,3 +300,35 @@ Arguments:
 ```json
 { "repoFullName": "acme-gh-org/inventory-app" }
 ```
+
+## ProjectRepoCredentialService
+
+Qualified name: `management-api~org.kinotic.management.api.services.github.ProjectRepoCredentialService`
+
+### `Project Repo Credential Service Issue Write Token`
+
+Issues a token that may write the project's repository — commits, branches and tags — on
+either repository host. A push to the default branch deploys the project.
+
+Arguments:
+
+```json
+{ "projectId": "inventory-app-main" }
+```
+
+Result (ProjectRepoToken):
+
+```json
+{
+  "token": "…",
+  "expiresAt": "2026-07-29T01:00:00.000Z",
+  "cloneUrl": "https://github.com/acme-gh-org/inventory-app.git",
+  "defaultBranch": "main"
+}
+```
+
+The token is good for an hour. Git presents it over HTTP as the password of the user
+`x-access-token`; the `create-app` skill's Step 3 shows the clone and the push. Request a
+fresh token for each push. Errors with `"projectId is required"`, and with a message
+starting `Project <projectId> of organization <organizationId> has no` when the project is
+not one of the caller's organization's or has no repository.

@@ -162,9 +162,13 @@ skill for the full table):
   does not mint (it provisions application-scope machines). Push to run your services.
 
 So the working loop is: edit → `bun run generate` (when entities changed) → export from
-`packages/domain/index.ts` → `bun run type-check` → commit → push → `findDeployment`
-until `RUNNING`. Verify behavior by calling the deployed service through a proxy from a
+`packages/domain/index.ts` → `bun run type-check` → commit → push (with a fresh token from
+`Project Repo Credential Service Issue Write Token`, as the `create-app` skill's Step 3 shows)
+→ `findDeployment` until `RUNNING`. Verify behavior by calling the deployed service through a proxy from a
 local script or the frontend, not by trying to host it locally.
 
-A fully local stack (`deployment/docker-compose/` in the platform repository) is a
-platform-operator setup, not part of an application project's workflow.
+A local Kinotic (`kinotic local up`) runs the whole of Kinotic OS on the user's machine,
+deployments included, and a project works against it as against Kinotic Cloud, through its
+`kinotic-local` MCP server: push, then `findDeployment` until `RUNNING`. With more than one
+Kinotic OS server connected, every call goes to the server holding the project, chosen as the
+`create-app` skill describes.

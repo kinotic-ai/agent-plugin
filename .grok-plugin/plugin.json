@@ -1,6 +1,6 @@
 {
   "name": "kinotic",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "Build Kinotic applications: onboard onto Kinotic OS, create apps and projects through the Kinotic MCP server, and develop, deploy, and run entities, services, and frontends",
   "author": {
     "name": "Kinotic AI",
