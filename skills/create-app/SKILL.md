@@ -29,6 +29,19 @@ carry the same text after the colon on every service. Never call a tool by a gue
 remembered name, and never parse the hash. `references/mcp-tools.md` documents each tool
 by title.
 
+**More than one Kinotic OS server can be connected**, such as the plugin's `kinotic-os` and a
+local Kinotic's `kinotic-local`. They offer the same tool titles but are different servers
+holding different organizations, applications and projects, so every tool call of a workflow
+goes to the one server the work belongs to — never create an application on one and its
+project, token or deployment check on another. Choose the server per task:
+- **A new application** — ask the user which Kinotic to create it on, naming the connected
+  servers, unless they already said.
+- **An existing project** — use the server that holds it: the one whose
+  `Project Service Get Repository Host` `webBaseUrl` is the host of the clone's
+  `git remote get-url origin`, and whose `Project Service Find By Id` returns the project
+  named by `projectId` in `.config/kinotic.config.ts`. Ask the user when that still leaves
+  more than one.
+
 ## Step 0 — Sign up or sign in to Kinotic OS
 
 Check whether the kinotic-os MCP tools are available — look for tools whose
@@ -99,10 +112,9 @@ server — the tools work the same from either:
 
 **A local Kinotic** (`kinotic local up`) is added this way as `kinotic-local`, at
 `http://localhost:58503/mcp`; the portal's Quickstart shows the command. Its portal at
-`http://localhost:9090` signs up with an email and a password, with no GitHub, and the
-plugin's own `kinotic-os` server stays unauthenticated beside it. When the tools of a
-`kinotic-local` server are present, use those, never the plugin's `kinotic-os` tools: the two
-are different Kinotic OS servers holding different organizations.
+`http://localhost:9090` signs up with an email and a password, with no GitHub. The
+plugin's own `kinotic-os` server stays beside it, authenticated or not as the user also uses
+Kinotic Cloud; with both connected, choose the server as described above.
 
 Two settings on that server gate this, set by whoever runs it (Kinotic Cloud has them
 in place): the server must list the coding agent's client-metadata URL in

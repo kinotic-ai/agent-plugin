@@ -114,10 +114,11 @@ screen. The coding agent stores and refreshes the token automatically.
 
 A local Kinotic, started with `kinotic local up`, is added the same way as `kinotic-local`
 (`claude mcp add -s user --transport http kinotic-local http://localhost:58503/mcp`); its
-portal's Quickstart shows the command. Authenticate `kinotic-local` and leave the plugin's
-`kinotic-os` as it is: the skills use the local server's tools when they are present. A local
-Kinotic keeps projects' repositories on its own Git server rather than GitHub, and the skills
-clone and push with a token Kinotic issues on either.
+portal's Quickstart shows the command. Authenticate `kinotic-local`, and `kinotic-os` too
+if you also work on Kinotic Cloud: with both connected, the skills work against the server
+that holds a project, and ask which one to create a new application on. A local Kinotic
+keeps projects' repositories on its own Git server rather than GitHub, and the skills clone
+and push with a token Kinotic issues on either.
 
 ## What's inside
 

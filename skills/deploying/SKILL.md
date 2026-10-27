@@ -169,4 +169,6 @@ local script or the frontend, not by trying to host it locally.
 
 A local Kinotic (`kinotic local up`) runs the whole of Kinotic OS on the user's machine,
 deployments included, and a project works against it as against Kinotic Cloud, through its
-`kinotic-local` MCP server: push, then `findDeployment` until `RUNNING`.
+`kinotic-local` MCP server: push, then `findDeployment` until `RUNNING`. With more than one
+Kinotic OS server connected, every call goes to the server holding the project, chosen as the
+`create-app` skill describes.
