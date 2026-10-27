@@ -132,12 +132,14 @@ before continuing.
 `id` is the server-minted slug of `name`. `organizationId` is derived from the
 authenticated user — pass both into project creation.
 
-### `Application Service Get Login Providers`
+### `Application Service Get Login Methods`
 
-Read-only. Returns the sign-in providers the application's login offers besides email and
-password, in the order to present them (used by the frontend skill when wiring login).
-Returns `[]` when the application's login offers password only. Fails when the id does
-not name an application in the caller's organization.
+Read-only. Returns the sign-in methods the application's login offers, in the order to
+present them (used by the frontend skill when wiring the login and sign-up pages): a
+`PASSWORD` entry for the email and password form while the application has the **Email and
+password** provider, and an `OIDC` entry per provider button. `signUp` is true for a method
+new people may sign up through. Fails when the id does not name an application in the
+caller's organization.
 
 Arguments:
 
@@ -145,11 +147,12 @@ Arguments:
 { "applicationId": "inventory-app" }
 ```
 
-Result (a list of LoginProviderSummary):
+Result (a list of ApplicationLoginProvider):
 
 ```json
 [
-  { "configurationId": "…", "name": "Google", "provider": "GOOGLE", "type": "APP_SOCIAL" }
+  { "configurationId": "my-org:inventory-app", "type": "PASSWORD", "name": "Email and password", "provider": null, "signUp": true },
+  { "configurationId": "…", "type": "OIDC", "name": "Google", "provider": "google", "signUp": false }
 ]
 ```
 

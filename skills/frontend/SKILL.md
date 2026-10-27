@@ -6,7 +6,7 @@ description: >
   that makes them equivalent), Kinotic.connect, the three VITE_KINOTIC_* build variables
   the deployment sets, browser sign-in through the gateway's login routes and the session
   cookie it establishes, BasicCredentialsResolver and BearerCredentialsResolver for Bun
-  and Node clients, machine identities via environment credentials, OIDC login, creating
+  and Node clients, machine identities via environment credentials, OIDC login, sign-up pages and
   application users, invoking published services and entity repositories from the UI, and
   the vite.config.ts a UI needs to bundle the domain package and its entity decorators. Use when building a
   Kinotic app frontend or SPA, working out what host or URL the UI should point at, wiring
@@ -412,7 +412,7 @@ The supplier runs before every (re)connect, so short-lived tokens refresh
 automatically. A Kinotic-minted JWT already carries the organization/application
 claims — no extra scope headers.
 
-## Application users and OIDC login
+## Application users, sign-up and OIDC login
 
 An application's users are its own user base, apart from the organization's members, and
 an identity at a provider never grants access by itself. A user comes from one of:
@@ -420,6 +420,10 @@ an identity at a provider never grants access by itself. A user comes from one o
 - **An invitation.** An organization admin invites the email from the portal's
   Application → **Users** page; the invitee accepts the emailed link with a password and
   from then on signs in through Recipe 1's `login()`.
+- **Sign-up with an email and a password.** While the application's **Email and
+  password** provider has `createUserOnSignIn` on, and only while the application's
+  `tenantManagement` is `SYSTEM`, a new person signs up on the UI's `/signup` page
+  (below), which gives them a tenant of their own.
 - **First sign-in through the organization's own provider.** An
   `ApplicationOidcConfiguration` with `createUserOnSignIn` on turns an identity it verifies
   that no user is bound to into a user, from the provider's verified email and name — only
@@ -430,62 +434,90 @@ an identity at a provider never grants access by itself. A user comes from one o
 
 The system's shared Google and Microsoft registrations (named in the application's
 `socialProviders`) create no users: they sign in only a user already bound to that
-identity. An identity with no user and nothing to create one ends at `no_account`; one
-whose email the application already holds under another method ends at `account_exists`.
+identity. An identity with no user and nothing to create one ends at `no_user`; one
+whose email the application already holds under another method ends at `user_exists`.
 
 The login page offers every method at once — the password form (Recipe 1's `login()`)
 and a "Continue with <name>" button per provider — and never asks the server about an
 email first; there is no lookup route.
 
 1. To see what the login offers, call the MCP tool whose description begins with
-   `Application Service Get Login Providers`, with `{"applicationId": "..."}` (Kinotic
+   `Application Service Get Login Methods`, with `{"applicationId": "..."}` (Kinotic
    MCP tool names are opaque hashes; match on the description). It answers
-   `[{configurationId, name, provider, type}]` in presentation order: the organization's
-   own `APPLICATION` configurations, then the `APP_SOCIAL` registrations the application
-   names. An empty list means the login is password only — tell the user rather than
-   writing provider buttons nobody can use.
+   `[{configurationId, type, name, provider, signUp}]` in presentation order. A `PASSWORD`
+   entry is the email and password form; an `OIDC` entry is a provider button. `signUp`
+   true means new people may sign up through it. A list with no `OIDC` entry means the
+   login is password only — tell the user rather than writing provider buttons nobody can
+   use.
 2. At runtime the page reads the same list from its API host, with
    `credentials: 'include'` as in Recipe 1:
-   - `GET /api/auth/app/login/providers` answers `[{ id, name, provider }]` — `id` is the
-     configuration id, `provider` the kind's key (`google`, `azure-ad`, `okta`, …) for
-     branding.
-   - A button posts to `POST /api/auth/app/login/oidc/start/<id>` (no body) and answers
-     `{ "redirect": "…" }`; send the browser there. `400` for a configuration the login
-     does not offer, `403` from a page that is not one of the application's UIs. The flow's
-     state lives in the API host's session, so the start needs `credentials: 'include'`.
+   - `GET /api/auth/app/login/methods` answers the same
+     `[{ configurationId, type, name, provider, signUp }]` — `provider` is the kind's key
+     (`google`, `azure-ad`, `okta`, …) for branding, `null` for `PASSWORD`.
+   - A button posts to `POST /api/auth/app/login/oidc/start/<configurationId>` (no body)
+     and answers `{ "redirect": "…" }`; send the browser there. `400` for a configuration
+     the login does not offer, `403` from a page that is not one of the application's UIs.
+     The flow's state lives in the API host's session, so the start needs
+     `credentials: 'include'`.
    - The provider returns to the API host (a shared registration via the app server's
      shared host), which sets the session cookie and sends the browser to `/` on the site
      that started the sign-in. Recipe 1's `resume()` then sees the live session and opens
      the connection.
-   - A failed sign-in lands on `<site>/login?error=<code>` (`no_account`,
-     `account_disabled`, `account_exists`, `email_not_verified`, `handoff_invalid`, …), so
-     the UI needs a `/login` route that shows the error and the methods again. One whose
-     flow session is lost lands on the application's primary UI's `/login` instead.
+   - A failed sign-in lands on `<site>/login?error=<code>` (`no_user`, `user_disabled`,
+     `user_exists`, `email_not_verified`, `handoff_invalid`, …), so the UI needs a `/login`
+     route that shows the error and the methods again. One whose flow session is lost
+     lands on the application's primary UI's `/login` instead.
 3. A page served at one of a tenant's sites signs in to that tenant with the same calls:
    the list adds the tenant's own providers ahead of the application's, and
    `/api/auth/app/login` admits only the tenant's users. A page that is not a tenant site
-   (a UI on localhost, say) names the tenant with `?tenantId=` on the providers `GET` and
+   (a UI on localhost, say) names the tenant with `?tenantId=` on the methods `GET` and
    the start, and `tenantId` in the password body; `404` for a tenant the application
    lacks. The MCP tool lists the application's own login only.
+
+### Sign-up with an email and a password
+
+While the `PASSWORD` entry's `signUp` is true, the UI serves a `/signup` page and the
+`/signup/verify` page the link opens; a tenant's site signs no one up.
+
+- `/signup` posts `{ email }` to `POST /api/auth/app/signup`. The answer depends on whether
+  the server sends email, and the page must handle both, since the same app runs on every
+  server:
+  - `202` — the link was emailed. Tell the person to check their inbox. It answers `202`
+    for every email, including one that already has a user, so it reveals nothing.
+  - `200 { verificationUrl }` — the server sends no email (a local server does not), so
+    show the link on the page for the person to open. Never tell them to check their
+    inbox here: nothing was sent.
+  - `409` — the server sends no email and the email already has a user; offer sign-in.
+- `/signup/verify?token=…` asks for a password and an optional name (at most 200
+  characters) and posts `{ token, password, displayName }` to
+  `POST /api/auth/app/signup/complete`, which answers `204` with the session cookie;
+  then open the connection as Recipe 1's `login()` does. `400` for a token that is
+  unknown, used or expired; `409` when the email already has a user, who signs in.
 
 ```ts
 // src/kinotic/session.ts, beside Recipe 1's login()
 
-/** A provider the login offers, as GET /api/auth/app/login/providers lists it. */
-export interface LoginProvider { id: string; name: string; provider: string }
+/** A sign-in method the login offers, as GET /api/auth/app/login/methods lists it. */
+export interface LoginMethod {
+    configurationId: string
+    type: 'PASSWORD' | 'OIDC'
+    name: string
+    provider: string | null
+    signUp: boolean
+}
 
-/** The providers to render a "Continue with <name>" button for, in order. */
-export async function loginProviders(): Promise<LoginProvider[]> {
-    const res = await fetch(apiUrl('/api/auth/app/login/providers'), { credentials: 'include' })
+/** The methods to render, in order: the password form for PASSWORD, a "Continue with <name>" button per OIDC. */
+export async function loginMethods(): Promise<LoginMethod[]> {
+    const res = await fetch(apiUrl('/api/auth/app/login/methods'), { credentials: 'include' })
     if (!res.ok) {
-        throw new Error(await errorMessage(res, 'Could not load sign-in providers'))
+        throw new Error(await errorMessage(res, 'Could not load sign-in methods'))
     }
-    return await res.json() as LoginProvider[]
+    return await res.json() as LoginMethod[]
 }
 
 /** Starts a sign-in through one provider; the browser leaves the page. */
-export async function continueWith(provider: LoginProvider): Promise<void> {
-    const res = await fetch(apiUrl(`/api/auth/app/login/oidc/start/${encodeURIComponent(provider.id)}`), {
+export async function continueWith(method: LoginMethod): Promise<void> {
+    const res = await fetch(apiUrl(`/api/auth/app/login/oidc/start/${encodeURIComponent(method.configurationId)}`), {
         method: 'POST',
         credentials: 'include',            // the flow's state rides the API host's session
     })
@@ -494,6 +526,49 @@ export async function continueWith(provider: LoginProvider): Promise<void> {
     }
     const { redirect } = await res.json() as { redirect: string }
     window.location.assign(redirect)
+}
+
+/** What the sign-up page shows once the email is accepted. */
+export type SignUpStarted =
+    | { kind: 'emailed' }                              // tell the person to check their inbox
+    | { kind: 'link', verificationUrl: string }        // no email is sent: show this link to open
+
+/** Starts a sign-up; rejects with 'An account already exists' when the server reports the email has a user. */
+export async function startSignUp(email: string): Promise<SignUpStarted> {
+    const res = await fetch(apiUrl('/api/auth/app/signup'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+    })
+    if (res.status === 409) {
+        throw new Error('An account already exists for this email. Sign in instead.')
+    }
+    if (!res.ok) {
+        throw new Error(await errorMessage(res, 'Could not start sign-up'))
+    }
+    let ret: SignUpStarted
+    if (res.status === 200) {
+        const { verificationUrl } = await res.json() as { verificationUrl: string }
+        ret = { kind: 'link', verificationUrl }
+    } else {
+        ret = { kind: 'emailed' }
+    }
+    return ret
+}
+
+/** Completes a sign-up from /signup/verify?token=…, then opens the connection as login() does. */
+export async function completeSignUp(token: string, password: string, displayName?: string): Promise<void> {
+    const res = await fetch(apiUrl('/api/auth/app/signup/complete'), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password, displayName }),
+    })
+    if (!res.ok) {
+        throw new Error(await errorMessage(res, 'Could not finish sign-up'))
+    }
+    await connect()
 }
 ```
 
