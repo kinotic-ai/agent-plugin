@@ -132,8 +132,8 @@ tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks 
    Any human-readable name works — the server slugifies it into the application id. It
    is rejected only when blank, all punctuation, or slugifying to the platform-reserved
    id `system-api`.
-2. **Ask whether people sign in.** Ask in plain English, and never show the user the
-   `tenantManagement` setting, JSON, or code:
+2. **Ask whether people sign in, and how they share data.** Ask in plain English, and never
+   show the user the `tenantManagement` setting, JSON, or code:
 
    > Should people have to sign in to use your app?
 
@@ -141,20 +141,39 @@ tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks 
    supported yet, and that it's coming soon 🙂. Ask whether they want to continue with an
    app people sign in to. Do not create the application unless they do.
 
-   If they say **yes**, create the application with `tenantManagement: "SYSTEM"`, which
-   gives every user a tenant of their own. Each entity then decides who sees its rows:
-   `@Entity(MultiTenancyType.SHARED)` keeps each user's rows private to that user, and
-   `@Entity(MultiTenancyType.NONE)` is data every user of the app sees. A `@TenantId` field is
-   optional, added only when the app's logic needs it. The `entities-and-persistence` skill
-   has the full table.
+   If they say **yes**, ask who the app is for, unless what they described already says:
+
+   > Will each person use your app on their own, or will groups of people — like companies
+   > or teams you take on as customers — each share their own data?
+
+   Their answer picks the application's `tenantManagement`, its tenant model:
+
+   - **Each person on their own** → `SYSTEM`. Every user gets a tenant of their own, and new
+     people can sign up at the app's own login. Pick it too when everyone who uses the app
+     shares one set of data, such as a tool for the user's own team. Each entity then
+     decides who sees its rows: `@Entity(MultiTenancyType.SHARED)` keeps each user's rows
+     private to that user, and `@Entity(MultiTenancyType.NONE)` is data every user sees.
+   - **Groups that each share their own data** → `TENANT_ADMINISTRATORS`. Each group is a
+     tenant, which the user's organization creates (`Tenant Service Create Tenant If Not
+     Exist`, or in the portal). People join a tenant by being added to it, on the
+     application's **Users** page in the portal, or through a sign-in provider of the
+     tenant's own; the app's own login offers no sign-up. Every UI is also served for each
+     tenant at its own address, signing in that tenant's users. A
+     `@Entity(MultiTenancyType.SHARED)` entity's rows are shared by the users of one tenant
+     and hidden from the others, and `@Entity(MultiTenancyType.NONE)` is data every tenant
+     sees.
+
+   When the answer could go either way, ask again with an example of each rather than
+   guess. A `@TenantId` field is optional under both, added only when the app's logic needs
+   it. The `entities-and-persistence` skill has the full table.
 
 3. Call the tool titled `Application Service Create Application If Not Exist` with
-   `{"name": ..., "description": ..., "tenantManagement": "SYSTEM"}`. The call is
+   `{"name": ..., "description": ..., "tenantManagement": <the value step 2 picked>}`. The call is
    idempotent — if the application already exists it is returned unchanged, **including
    its existing `tenantManagement`**: the argument only applies when the application is
    created, because changing it later would split the users into tenanted and untenanted
-   halves. An application that already exists with `TENANT_ADMINISTRATORS` is changed in
-   the portal (**Application → Settings → Tenants**), and only while it still has no users.
+   halves. An application that already exists with the other value is changed in the
+   portal (**Application → Settings → Tenants**), and only while it still has no users.
 4. From the result, record `id` (the server-minted slug of the name, e.g.
    `Inventory App` → `inventory-app`) and `organizationId`. Both are needed in Step 2.
    The result's `tenantManagement` confirms what the application was created with.

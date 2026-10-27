@@ -91,7 +91,7 @@ nothing (all punctuation), or slugifies to the platform-reserved id `system-api`
 | Value | Meaning |
 |---|---|
 | `SYSTEM` | Every user gets a tenant of their own when the user is created, and the rows the user writes to a `SHARED` entity are isolated in it |
-| `TENANT_ADMINISTRATORS` (also what `null` means) | A customer signing up, or the organization in the portal, creates a tenant, and its administrator decides who joins. Users created into no tenant have none and share the application's data |
+| `TENANT_ADMINISTRATORS` (also what `null` means) | The organization creates each tenant, and a user is added to one: every user of the application belongs to the tenant it was created in, and the application's own login offers no sign-up |
 
 See the create-app workflow for choosing it, and the entities-and-persistence skill for
 the entity side that must agree.
@@ -119,9 +119,9 @@ Result (Application):
 }
 ```
 
-The create-app workflow always passes `tenantManagement: "SYSTEM"`. A result with
-`TENANT_ADMINISTRATORS` means the application already existed with administrator-managed
-tenants; tell the user before continuing.
+The create-app workflow passes the value its Step 1 picked from the app's tenant model. A
+result with the other value means the application already existed with it; tell the user
+before continuing.
 
 `id` is the server-minted slug of `name`. `organizationId` is derived from the
 authenticated user — pass both into project creation.
