@@ -178,14 +178,14 @@ skill for the full table):
   on the portal's **Application → Machines** page (application scope), and run with
   `KINOTIC_CLIENT_ID` / `KINOTIC_CLIENT_SECRET` set, or connect as an application user
   with `BasicCredentialsResolver(email, password, organizationId, applicationId)`. This
-  is how a local frontend or a one-off script talks to the deployed application.
+  is how a one-off script talks to the deployed application.
 - **Hosting a `@Publish` service** — needs organization scope, which the Machines page
   does not mint (it provisions application-scope machines). Push to run your services.
 
 So the working loop is: edit → `bun run generate` (when entities changed) → export from
 `packages/domain/index.ts` → `bun run type-check` → commit → push (see **Pushing**) →
 `findDeployment` until `RUNNING`. Verify behavior by calling the deployed service through a proxy from a
-local script or the frontend, not by trying to host it locally.
+local script, or on the published UI (`frontend` skill, **Verifying a UI**), not by running it locally.
 
 A local Kinotic (`kinotic local up`) runs the whole of Kinotic OS on the user's machine,
 deployments included, and a project works against it as against Kinotic Cloud, through its
