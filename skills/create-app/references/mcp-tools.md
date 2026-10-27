@@ -45,13 +45,19 @@ These services carry a type-level `@McpTool`, so **every** function on them is a
 | `Tenant Service` | The tenants of the organization's applications |
 | `Owned Oidc Configuration Service` | The organization's own sign-in providers |
 
-The first three also expose the functions they inherit from the CRUD hierarchy:
+`Application Service` and `Project Service` also expose the functions they inherit from the CRUD hierarchy:
 
 | Inherited from | Tools |
 |---|---|
 | `CrudService` | `… Save`, `… Save Sync`, `… Find By Id`, `… Count`, `… Delete By Id`, `… Delete By Id Sync`, `… Find All`, `… Search`, `… Sync Index` |
 | `IdentifiableCrudService` | `… Create`, `… Create Sync` |
-| `ApplicationScopedCrudService` (Project and Tenant services) | `… Count For Application`, `… Find All For Application` |
+| `ApplicationScopedCrudService` (Project Service) | `… Count For Application`, `… Find All For Application` |
+
+`Tenant Service` inherits nothing: a tenant id is unique within its application, not the
+organization, so every one of its tools names the application — `Create Tenant If Not Exist`
+(`{"applicationId", "name", "description"}`), `Find By Id` and `Delete By Id`
+(`{"applicationId", "tenantId"}`), `Count For Application`, `Find All For Application` and
+`Find For Application By Prefix`.
 
 `Application Service Count` answers how many applications the organization has, and
 `Application Service Find All` lists them a page at a time (the `pageable` argument's
