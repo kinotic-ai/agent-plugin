@@ -3,8 +3,8 @@ name: create-app
 description: >
   Set up a new Kinotic application end to end: authenticate with Kinotic OS through the
   kinotic-os MCP server (signing up if needed), create the Application and Project with
-  the Kinotic MCP tools, wait for the GitHub repository to be provisioned from the
-  template, connect to GitHub, clone the repository, and verify the scaffold. Use when
+  the Kinotic MCP tools, wait for the project's Git repository to be provisioned from the
+  template, clone it with a token Kinotic issues, and verify the scaffold. Use when
   the user wants to create, start, bootstrap, or set up a new Kinotic app or project,
   sign up for Kinotic OS, or connect the coding agent to Kinotic OS.
 ---
@@ -16,8 +16,10 @@ error strings) are in `references/mcp-tools.md`. The expected repository layout 
 `references/project-scaffold.md`.
 
 An application holds one or more projects; the workflow below creates its default `main`
-project, scaffolded as a Bun-workspace mono repo. The project's GitHub repository is created by
-Kinotic OS — never create the repository yourself.
+project, scaffolded as a Bun-workspace mono repo. The project's Git repository is created by
+Kinotic OS — never create the repository yourself. Kinotic Cloud hosts it on GitHub; a local
+Kinotic (`kinotic local up`) hosts it on its own Git server, so never assume GitHub — Step 2
+asks the server where its repositories live.
 
 **MCP tool names are opaque hashes.** Every Kinotic OS tool's description begins with
 its title and a colon (e.g. `Application Service Create Application If Not Exist: Creates
@@ -56,7 +58,7 @@ matching path — the whole flow happens in their browser, so narrate what they 
    "Authorization request unavailable", the link is stale: start the sign-in again to
    mint a fresh one.
 3. **No account yet** — click **Create an organization** on the login page:
-   - Sign up with GitHub — that is the only sign-up path (Kinotic projects are backed
+   - On Kinotic Cloud, sign up with GitHub — that is the only sign-up path (Kinotic projects are backed
      by GitHub repositories, so the organization starts from the user's GitHub
      identity). Users invited to an existing organization accept the emailed
      invitation link instead of creating a new organization.
@@ -94,6 +96,13 @@ server — the tools work the same from either:
   url = "<url>"
   oauth_client_id = "https://kinotic.ai/oauth/grok-build-client.json"
   ```
+
+**A local Kinotic** (`kinotic local up`) is added this way as `kinotic-local`, at
+`http://localhost:58503/mcp`; the portal's Quickstart shows the command. Its portal at
+`http://localhost:9090` signs up with an email and a password, with no GitHub, and the
+plugin's own `kinotic-os` server stays unauthenticated beside it. When the tools of a
+`kinotic-local` server are present, use those, never the plugin's `kinotic-os` tools: the two
+are different Kinotic OS servers holding different organizations.
 
 Two settings on that server gate this, set by whoever runs it (Kinotic Cloud has them
 in place): the server must list the coding agent's client-metadata URL in
@@ -138,7 +147,13 @@ tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks 
    `Inventory App` → `inventory-app`) and `organizationId`. Both are needed in Step 2.
    The result's `tenantManagement` confirms what the application was created with.
 
-## Step 2 — Create the Project (provisions the GitHub repository)
+## Step 2 — Create the Project (provisions the Git repository)
+
+First call the tool titled `Project Service Get Repository Host` (no arguments). Its
+`type` says where the server keeps projects' repositories: `GITHUB` (Kinotic Cloud), where
+an organization links GitHub before it creates a project, or `GITEA` (a local Kinotic),
+which needs no linking. Its `webBaseUrl` followed by `/<repoFullName>` is a repository's web
+page, the link to give the user.
 
 Every application gets a **`main` project** by default — do not ask the user to name it.
 Call the tool titled `Project Service Create Project If Not Exist`. The single argument
@@ -160,20 +175,20 @@ key is exactly `project`:
 
 Setting `id` explicitly is what makes it the `main` project: left unset the server derives
 `<applicationId>-<slugified name>`, giving the doubled `inventory-app-inventory-app`.
-**Do not put `main` in `name`** — the GitHub repository is named after the slugified
+**Do not put `main` in `name`** — the repository is named after the slugified
 project name, so a project named `main` produces a repo called `main`, and the second
-application in the same GitHub account then collides with it. The name carries the app's
+application in the same account then collides with it. The name carries the app's
 identity for the repo; the id carries the `main` convention.
 
 `organizationId` is required — the server rejects a project without it. Creation
-provisions a GitHub repository from the Kinotic template through the organization's
-GitHub App installation and commits a rendered baseline. The call is idempotent:
-re-running it returns the existing project unchanged.
+provisions the repository from the Kinotic template — on GitHub through the organization's
+GitHub App installation — commits a rendered baseline, and deploys that baseline. The call is
+idempotent: re-running it returns the existing project unchanged.
 
 Handle the outcomes:
 
-- **Error containing "GitHub is not linked for this organization"** — the organization
-  has no GitHub App installation. Fresh signups normally completed this during Step 0
+- **Error containing "GitHub is not linked for this organization"** (`GITHUB` only) — the
+  organization has no GitHub App installation. Fresh signups normally completed this during Step 0
   ("Continue to GitHub"), so this error usually means that install was skipped or
   abandoned. Direct the user to the Kinotic OS portal → sidebar **Organization →
   Organization settings** → **Integrations** → the **GitHub** card → **Link GitHub**.
@@ -181,7 +196,7 @@ Handle the outcomes:
   is where project repositories are created; on success the card reads "Linked as
   <account>". An organization holds one installation at a time (moving to a different
   account requires **Unlink** first). Then re-run the exact same tool call.
-- **GitHub App installs can fail visibly.** The install returns to a callback page; on
+- **GitHub App installs can fail visibly** (`GITHUB` only). The install returns to a callback page; on
   failure it shows "Couldn't finish linking GitHub" plus a reason. Common ones:
   *state is missing, expired, or already used* (the install state is single-use and
   expires in 10 minutes — start the link again from Organization settings; never
@@ -201,22 +216,41 @@ Handle the outcomes:
 Record `repoFullName` (`owner/repo`) from the result — the repo is named after the
 slugified project name, not the project id, so never derive it. If you are ever unsure
 whether a project already exists for a repository, call the tool titled
-`Project Service Find by GitHub Repo` with `{"repoFullName": "owner/repo"}`.
+`Project Service Find by GitHub Repo` with `{"repoFullName": "owner/repo"}`, which finds
+a repository on either host despite its title.
 
-## Step 3 — Connect to GitHub and clone
+## Step 3 — Clone with a Kinotic token
 
-The repository lives under the GitHub account or organization where the Kinotic GitHub
-App is installed, and is private by default, so the user's own GitHub credentials must
-have access to it.
+Clone and push with a token Kinotic issues, on GitHub and the local Git server alike — never
+with `gh` or the user's own GitHub credentials, which cannot reach a local Kinotic's
+repositories.
 
-1. Check GitHub access with whatever is available: `gh auth status` if the `gh` CLI is
-   installed, or a connected GitHub MCP server. If neither is authenticated, ask the
-   user to connect one (e.g. run `gh auth login`).
-2. Verify the repository is reachable: `gh repo view <repoFullName>` (or the MCP
-   equivalent). A 404 on a repository that was just created means the user's GitHub
-   account lacks access — they need to accept an invitation or be granted access in
-   the GitHub organization settings.
-3. Clone it: `gh repo clone <repoFullName>` (or `git clone`).
+1. Call the tool titled `Project Repo Credential Service Issue Write Token` with
+   `{"projectId": "<project id>"}`. The result carries `token`, `expiresAt` (an hour
+   out), `cloneUrl` and `defaultBranch`. The token may write this one repository: commits,
+   branches and tags.
+2. Clone with the token as the password of the user `x-access-token`, through a credential
+   helper scoped to the one command:
+
+   ```bash
+   KINOTIC_REPO_TOKEN='<token>' git -c credential.helper= \
+     -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$KINOTIC_REPO_TOKEN"; }; f' \
+     clone <cloneUrl>
+   ```
+
+   The empty `credential.helper=` comes first so no stored helper (the macOS keychain, a
+   credential manager) saves the token. Never put the token in the remote URL, a file or
+   git config, and never echo it back to the user.
+3. **Push the same way**, with a fresh token from `Issue Write Token` for every push rather
+   than the one from the clone, which expires within the hour:
+
+   ```bash
+   KINOTIC_REPO_TOKEN='<token>' git -c credential.helper= \
+     -c 'credential.helper=!f() { echo username=x-access-token; echo "password=$KINOTIC_REPO_TOKEN"; }; f' \
+     push origin <defaultBranch>
+   ```
+
+   Commits are authored by the user's own `git config user.name` and `user.email`.
 
 ## Step 4 — Verify the scaffold
 
@@ -245,7 +279,7 @@ are the source of truth.
    `package.json`, tell the user instead of improvising.
 3. Export the entity and its repository from `packages/domain/index.ts` — nothing else
    in the workspace can import them until you do — then run `bun run type-check`.
-4. Commit and push everything generate produced: entity sources, the generated
+4. Commit and push (Step 3's push) everything generate produced: entity sources, the generated
    repository classes, and `.config/c3` (a committed generation artifact — keep it in
    git so schema changes show up in diffs; never gitignore it). Never run
    `kinotic login` or `kinotic sync` yourself.
