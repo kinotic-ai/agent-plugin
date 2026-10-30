@@ -29,7 +29,7 @@ decorators with no runtime behavior — the tooling reads them from the TypeScri
 | `@Flattened` | `Record<string, ...>` | Dynamic key-value maps indexed as keywords. |
 | `@Nested` | `Something[]` | Array elements stay independently queryable (no cross-matching between elements). |
 | `@Version` | `version: string \| null = null` | Optimistic locking; stale saves fail with a conflict. |
-| `@TenantId` | `string` | With `MultiTenancyType.SHARED`: exposes the row's tenant id on the entity, filled from the authenticated user on save (a user may not set another). A `SHARED` entity is isolated by tenant without it, but an organization-scope service can only write the entity when it declares the field and sets it, and the field is what generates the `<Entity>AdminRepository` that reads across tenants with a `TenantSelection`. |
+| `@TenantId` | `string` | Optional, with `MultiTenancyType.SHARED`: exposes the row's tenant id on the entity, filled from the authenticated user on save (a user may not set another). A `SHARED` entity is isolated by tenant without it. |
 | `@DateTime` | `string` or `string[]` holding ISO-8601 dates | Stored and queried as a date, so it sorts and range-queries by time. Set it with `new Date().toISOString()`. |
 | `@TimeReference` | `timestamp: string = new Date().toISOString()` | With `EntityType.STREAM`: the time-series timestamp field. Pair it with `@DateTime`. |
 
@@ -57,13 +57,12 @@ A bare `@Discriminator` (no argument) is rejected during generation.
 
 ## `@Query(statement)` — named queries
 
-Method decorator, only on the `<Entity>Repository` or `<Entity>AdminRepository` subclass
-(the files generation never overwrites). One `SELECT` (rows, or an aggregate with
-functions and `GROUP BY`), `INSERT`, `UPDATE` or `DELETE` statement of the migration
-grammar naming the entity, `:name` parameter binding, a `Promise` return, and an empty
-method body filled by `bun run generate`. A query on an admin repository declares a
-`TenantSelection` parameter, and one on the tenant-scoped repository must not; a `Pageable`
-parameter pages a `SELECT` (generation warns when it is not first or last).
+Method decorator, only on the `<Entity>Repository` subclass (the file generation never
+overwrites). One `SELECT` (rows, or an aggregate with functions and `GROUP BY`), `INSERT`,
+`UPDATE` or `DELETE` statement of the migration grammar naming the entity, `:name`
+parameter binding, a `Promise` return, and an empty method body filled by
+`bun run generate`. A `Pageable` parameter pages a `SELECT` (generation warns when it is
+not first or last).
 
 ## Repository API (`EntityRepository<T>`)
 
@@ -98,9 +97,7 @@ requires a connected `Kinotic` singleton (`Kinotic.use(PersistencePlugin)` is op
 it only adds the typed `Kinotic.entities` accessor). The subclass forwards a generated
 `shouldValidate` flag to the base: with `validate: true` in `.config/kinotic.config.ts`,
 the base repository runs decorator-derived validation client-side before saves and
-updates. An entity with `@TenantId` also gets `<Entity>AdminRepository`
-(`new PersonAdminRepository()`), whose read, count and delete methods take a
-`TenantSelection` (`['*']` or tenant ids) as their first argument and which has no save.
+updates.
 
 ## Deliberately not covered
 

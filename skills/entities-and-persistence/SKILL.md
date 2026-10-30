@@ -286,24 +286,18 @@ authenticated user and every query is filtered to it, so ordinary repository cod
 tenant handling. The platform stores each row's tenant itself, so a `SHARED` entity needs no
 tenant field to be isolated.
 
-**`@TenantId` is optional for a user's client.** Declare a `@TenantId` field
-(`tenantId: string = ''`) when the app's logic needs to read a row's tenant id on the
-entity, or when a backend service must touch the entity (next paragraph). On a user's save
-the field is filled with the user's tenant, and any other value is rejected.
+**`@TenantId` is optional.** Declare a `@TenantId` field (`tenantId: string = ''`) only when
+the app's logic needs to read a row's tenant id on the entity. On a user's save the field is
+filled with the user's tenant; never set it yourself.
 
-**A backend service reaches a `SHARED` entity only by naming the tenant.** The tenant
-comes off the authenticated participant, and only an APPLICATION-scope participant carries
-one — the deployed runtime connects at organization scope (see the `services` skill), so a
-`@Publish`ed service calling the tenant-scoped repository on a `SHARED` entity fails with
-`Participant with a TenantId is required when MultiTenancyType is SHARED`. From
-organization scope the entity must declare `@TenantId`: a save through the ordinary
-repository then stores the row under the tenant the field names (and fails with
-`Tenant Id field cannot be null` when it is blank), and reads go through the generated
-`<Entity>AdminRepository`, whose every method takes a `TenantSelection` first — `['*']`
-for all tenants, or a list of tenant ids — and which offers no save or update. A
-tenant-bound user may select only its own tenant there, so the admin repository is for
-services and scripts, not for the UI. Per-user reads and writes driven by the user belong
-on a client connected as that user.
+**A backend service cannot write a `SHARED` entity.** The tenant id comes off the
+authenticated participant, and only an APPLICATION-scope participant carries one — the
+deployed runtime connects at organization scope (see the `services` skill), so a
+`@Publish`ed service saving a `SHARED` entity fails with
+`Participant with a TenantId is required when MultiTenancyType is SHARED`. Reads and
+writes of a user's `SHARED` rows belong on a client connected as that user. An entity with a
+`@TenantId` field also gets a generated `<Entity>AdminRepository`; its tenant selection is
+limited to the logged-in tenant, which makes it useless today, so do not use it.
 
 Docs: <https://kinotic.ai/apps/persistence/multi-tenancy>.
 
