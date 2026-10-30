@@ -17,7 +17,8 @@ description: >
 
 Every client — browser SPA, Node client, script — speaks the same STOMP-over-WebSocket
 protocol to the Kinotic RPC gateway. There is no REST layer for application services;
-the only REST endpoints are platform auth (`/api/auth/*`) and MCP (`/mcp`). Frontends
+the only REST endpoints are platform auth and OAuth (`/api/auth/*`), MCP (`/mcp`) and
+`/health`. Frontends
 live in `packages/ui` of the project scaffold and may use any framework that builds to
 static assets. Docs: <https://kinotic.ai/apps/security/authentication>.
 
@@ -63,9 +64,11 @@ cookie travels. Recipe 1's `serverOptions()` / `apiUrl()` are that code, and the
 consoles connect the same way. Nothing is hand-set, and the code is the same on every server.
 
 The session cookie is `SameSite=Lax`, which is sent whenever the API and the site share a
-site, as an application's API host and its sites do: both under `kinotic.ai` on Kinotic Cloud,
-and both under `kinotic.localhost` on a local Kinotic. A published UI therefore uses the cookie
-flow (Recipe 1).
+site, as an application's API host and its sites do: both under `kinotic.io` on Kinotic Cloud
+(the API host `<organizationId>--<applicationId>.apps-api.<zone>`, the sites
+`<applicationId>--<uiName>.<organizationId>.<zone>`; `kinotic.ai` holds only the platform's
+own hosts), and both under `kinotic.localhost` on a local Kinotic. A published UI therefore
+uses the cookie flow (Recipe 1).
 
 ## The UI build contract
 
@@ -76,7 +79,7 @@ API domain, as exactly three variables, and Vite exposes them to the page on its
 
 | Variable | Value | What the UI does with it |
 |---|---|---|
-| `VITE_KINOTIC_HOST` | e.g. `acme--orders.apps-api.kinotic.ai` | The host the UI connects to Kinotic on from the browser |
+| `VITE_KINOTIC_HOST` | e.g. `acme--orders.apps-api.kinotic.io` | The host the UI connects to Kinotic on from the browser |
 | `VITE_KINOTIC_PORT` | e.g. `443` | Its port |
 | `VITE_KINOTIC_USE_SSL` | `true` or `false` | Whether to connect over TLS |
 
@@ -128,11 +131,13 @@ place it runs as its users see it. After changing a UI, commit and push (`deploy
 then:
 
 1. Call `Project Service Find Deployment` with `{"projectId": "<project id>"}` until
-   `status.type` is `RUNNING` with `commitSha` at the pushed commit, or `FAILED`, whose
-   `status.message` says why.
+   `state.observed.phase` is `RUNNING` with `state.observed.commitSha` at the pushed commit,
+   or `FAILED`, whose `failureMessage` says why.
 2. Call `Ui Deployment Service Find All For Project` with `{"projectId": "<project id>"}`. Each
-   UI deployment carries the site's `url`, its `state`, and an `observation` saying what the
-   site answered while it does not yet serve the commit.
+   UI deployment carries the site's `url`
+   (`https://<applicationId>--<uiName>.<organizationId>.<sites domain>`), its `state`
+   (`observed.phase` `PROVISIONING` until the site serves the commit, then `READY`), and an
+   `observation` saying what the site answered while it does not yet serve the commit.
 3. Fetch `<url>/version.json`; the site serves the push once its `commitSha` is the pushed
    commit.
 4. Give the user the `url` to open, and say what to try there: signing up, signing in, the
@@ -219,19 +224,21 @@ in the UI's directory, then parse the bundle, for example `node --check` on each
 
 A browser **cannot** set WebSocket upgrade headers. `BasicCredentialsResolver` puts the
 credentials in upgrade headers, which only the Node and Bun sockets accept, so in a browser
-it produces an unauthenticated upgrade and `Max number of reconnection attempts reached`.
-In a browser the session cookie is the credential, and the gateway's login route
-establishes it.
+the connection never authenticates (`Credential resolution failed`, or with
+`maxConnectionAttempts` set, `Max number of reconnection attempts reached`). In a browser
+the session cookie is the credential, and the gateway's login route establishes it.
 
 - The app server identifies the application from the request's hostname, the API host the
   UI connects to (`<organizationId>--<applicationId>.<apps API domain>`), so the login routes
   carry no organization or application id in their path.
 - The app-scope password login is `POST /api/auth/app/login` with `{ email, password }`. It
   answers `204` and sets the cookie, `401` with `{ "error": "Invalid credentials" }` for a
-  wrong email or password, or `403` when the page that sent it is not one of the
-  application's UIs (its published sites, or `http://localhost` under the app server's
-  development profile). The user must exist in **that application's** user base (portal,
-  Application → **Users**); the route does not authenticate organization members.
+  wrong email or password, `400` for a blank field, or `403` when the page that sent it is
+  not one of the application's UIs (its published sites, plus any origin matching the app
+  server's `kinotic.appServer.localUiOriginPattern`, which a local Kinotic sets to
+  `http://localhost:<any port>` so a Vite dev server can sign in; Kinotic Cloud sets none).
+  The user must exist in **that application's** user base (portal, Application →
+  **Users**); the route does not authenticate organization members.
 - `GET /api/auth/me` answers `204` when the browser holds a live session and `401`
   otherwise. `POST /api/auth/logout` ends the session.
 - Every request carries `credentials: 'include'`, and `Kinotic.connect` takes only the
@@ -242,7 +249,7 @@ establishes it.
 //
 // Sign-in for a Kinotic app UI. The deploy builds the UI with three variables naming the
 // platform it was published against, and Vite exposes them to the page on its own:
-//   VITE_KINOTIC_HOST     e.g. acme--orders.apps-api.kinotic.ai, the application's API host
+//   VITE_KINOTIC_HOST     e.g. acme--orders.apps-api.kinotic.io, the application's API host
 //   VITE_KINOTIC_PORT     e.g. 443
 //   VITE_KINOTIC_USE_SSL  "true" | "false"
 //
@@ -404,18 +411,19 @@ an identity at a provider never grants access by itself. A user comes from one o
   password** provider has `createUserOnSignIn` on, and only while the application's
   `tenantManagement` is `SYSTEM`, a new person signs up on the UI's `/signup` page
   (below), which gives them a tenant of their own.
-- **First sign-in through the organization's own provider.** An
-  `ApplicationOidcConfiguration` with `createUserOnSignIn` on turns an identity it verifies
-  that no user is bound to into a user, from the provider's verified email and name — only
-  while the application's `tenantManagement` is `SYSTEM` (the default is
-  `TENANT_ADMINISTRATORS`), which gives each such user a tenant of its own. A
-  `TenantOidcConfiguration` with `createUserOnSignIn` does the same into its tenant, at
-  that tenant's login.
+- **First sign-in through a provider.** An `ApplicationOidcConfiguration` with
+  `createUserOnSignIn` on turns an identity it verifies that no user is bound to into a
+  user, from the provider's verified email and name — only while the application's
+  `tenantManagement` is `SYSTEM` (the default is `TENANT_ADMINISTRATORS`), which gives
+  each such user a tenant of its own. A `TenantOidcConfiguration` with
+  `createUserOnSignIn` does the same into its tenant, at that tenant's login.
 
-The system's shared Google and Microsoft registrations (named in the application's
-`socialProviders`) create no users: they sign in only a user already bound to that
-identity. An identity with no user and nothing to create one ends at `no_user`; one
-whose email the application already holds under another method ends at `user_exists`.
+A Google or Microsoft provider may use Kinotic's own registration with the provider
+(`clientRegistrationType` `MANAGED`, no client of the organization's own) or the
+organization's (`OWN`); sign-in and sign-up behave the same either way. An identity with
+no user and nothing to create one ends at `no_user`; one whose email the application
+already holds under another method ends at `user_exists`; a Microsoft account whose email
+the token does not vouch for ends at `email_not_verified`.
 
 The login page offers every method at once — the password form (Recipe 1's `login()`)
 and a "Continue with <name>" button per provider — and never asks the server about an
@@ -444,9 +452,11 @@ email first; there is no lookup route.
      that started the sign-in. Recipe 1's `resume()` then sees the live session and opens
      the connection.
    - A failed sign-in lands on `<site>/login?error=<code>` (`no_user`, `user_disabled`,
-     `user_exists`, `email_not_verified`, `handoff_invalid`, …), so the UI needs a `/login`
-     route that shows the error and the methods again. One whose flow session is lost
-     lands on the application's primary UI's `/login` instead.
+     `user_exists`, `email_not_verified`, `handoff_invalid`, `state_mismatch`,
+     `exchange_failed`, …; `no_user` and `email_not_verified` add `&provider=<key>` naming
+     the provider that verified the identity), so the UI needs a `/login` route that shows
+     the error and the methods again. One whose flow session is lost lands on the
+     application's primary UI's `/login` instead.
 3. A page served at one of a tenant's sites signs in to that tenant with the same calls:
    the list adds the tenant's own providers ahead of the application's, and
    `/api/auth/app/login` admits only the tenant's users. A page that is not a tenant site
@@ -470,13 +480,13 @@ While the `PASSWORD` entry's `signUp` is true, the UI serves a `/signup` page an
   - `409` — the server sends no email and the email already has a user; offer sign-in.
 
   Returning the link is intended, not a hole for the app to close. A Kinotic server sends
-  no email only when it runs in demonstration mode, the setup `kinotic local up` starts
-  on the developer's own machine so they can try their app without an email service;
-  only the developer can reach it, so handing them the link exposes nothing. Every other
-  Kinotic server, Kinotic Cloud included, sends email, answers `202`, and never puts the
-  link in a response. The server decides which answer to give, so the page shows
-  whatever it receives: never hide the link, check which server it runs on, or treat the
-  `200` as a misconfiguration.
+  no email only when its operator turned email off (`kinotic.domain.email.enabled: false`),
+  as the local Kinotic `kinotic local up` starts on the developer's own machine does so they
+  can try their app without an email service; only the developer can reach it, so handing
+  them the link exposes nothing. A server that sends email, Kinotic Cloud included, answers
+  `202` and never puts the link in a response. The server decides which answer to give, so
+  the page shows whatever it receives: never hide the link, check which server it runs on,
+  or treat the `200` as a misconfiguration.
 - `/signup/verify?token=…` asks for a password and an optional name (at most 200
   characters) and posts `{ token, password, displayName }` to
   `POST /api/auth/app/signup/complete`, which answers `204` with the session cookie;
