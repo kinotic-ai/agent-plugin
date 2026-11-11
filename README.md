@@ -92,17 +92,19 @@ endpoint as its own MCP server alongside the plugin:
 
 The skills pick the Kinotic OS tools by the title each description begins with, so they
 work the same through a manually added server. Two server-side settings gate a non-cloud
-server — whoever runs that server sets them; on Kinotic Cloud they are already in
-place: it must list the coding agent's client-metadata URL in
+server. It must list the coding agent's client-metadata URL in
 `kinotic.domain.oauth.allowedClientIds` (there is no dynamic client registration) —
 `https://claude.ai/oauth/claude-code-client-metadata` for Claude Code,
-`https://chatgpt.com/oauth/codex/client.json` for Codex,
+`https://claude.ai/oauth/mcp-oauth-client-metadata` for the Claude desktop app's
+connectors, `https://chatgpt.com/oauth/codex/client.json` for Codex,
 `https://kinotic.ai/oauth/grok-build-client.json` for Grok Build,
 `https://chatgpt.com/oauth/client.json` for ChatGPT, and
-`https://cursor.com/oauth/mcp-client.json` for Grok and Grok Bot — and when its OAuth surface is
-reached at a different host than the browser uses (localhost behind a tunnel), it must
-set `kinotic.managementServer.issuerBaseUrl` — missing either makes OAuth fail as if the
-server never appeared.
+`https://cursor.com/oauth/mcp-client.json` for Grok and Grok Bot; the management server's
+stock configuration ships all of them, so only an operator who overrides the list must
+re-add them. And when its OAuth surface is reached at a different host than
+`kinotic.managementApi.apiBaseUrl` (localhost behind a tunnel), it must set
+`kinotic.managementServer.issuerBaseUrl`; a plain localhost server needs nothing. Missing
+either makes OAuth fail as if the server never appeared.
 
 After installing, sign in to the Kinotic OS server (`kinotic-os`, or the name you gave a
 manually added one such as `kinotic-os-test`). In Claude Code, run `/mcp`, select the
@@ -135,11 +137,12 @@ and push with a token Kinotic issues on either.
 ## How a Kinotic app fits together
 
 A push to the project repository's default branch is the whole pipeline. The deployment
-runs a sandboxed build VM that checks the commit out, installs, and runs `kinotic sync`
+runs a sandboxed build VM that checks the commit out, installs, runs `kinotic sync`
 (which regenerates from the entity sources, pushes and publishes the entity definitions and
-named queries, and applies migrations), builds and publishes every UI, then leaves every
-microservice of the commit with a running VM. A commit that does not compile fails the build
-and never reaches the running services.
+named queries, and applies migrations) and builds every UI; then it leaves every
+microservice of the commit with a running VM of its own, publishes every UI to its site,
+and records the project's SBOM. A commit whose generation, definitions or UI builds fail
+never reaches the running services.
 
 Three consequences shape every skill in this plugin:
 
@@ -151,7 +154,8 @@ Three consequences shape every skill in this plugin:
   Machines page does not mint. Running your services means pushing.
 - **A published entity definition is additive-only.** The push publishes new entities and
   creates their storage, but from then on only new fields apply in place — a rename or
-  type change needs a migration, or an un-publish that drops the index and its data.
+  type change needs a new entity with a `REINDEX` migration copying the rows, or an
+  un-publish that drops the index and its data.
 
 
 Kinotic OS mints MCP tool names as opaque base-36 hashes (≤ 25 chars of `[0-9a-z]`),
@@ -171,8 +175,8 @@ Run it in Claude Code, Codex, and Grok Build.
    `claude mcp add -s user --transport http kinotic-os-test http://localhost:58503/mcp`
    or `codex mcp add kinotic-os-test --url http://localhost:58503/mcp`, or the
    `~/.grok/config.toml` entry above with `url = "http://localhost:58503/mcp"`
-   (a localhost server needs `kinotic.managementServer.issuerBaseUrl` + an
-   `allowedClientIds` entry for the OAuth flow to complete).
+   (a server reached through a tunnel at another host than its `apiBaseUrl` needs
+   `kinotic.managementServer.issuerBaseUrl` for the OAuth flow to complete).
 2. `/mcp` → `kinotic-os-test`, `codex mcp login kinotic-os-test`, or Grok's `/mcps` →
    `kinotic-os-test` → `i` → complete the OAuth flow, including one pass as a brand-new
    signup.
@@ -189,11 +193,13 @@ Run it in Claude Code, Codex, and Grok Build.
    clone, if the template has drifted.
 5. `bun install`, `bun run generate` (with a first entity), export it from
    `packages/domain/index.ts`, `bun run type-check`, commit, push. Then poll
-   `Project Service Find Deployment` until `status.type` is `RUNNING` on the pushed
-   `commitSha`, confirm the entity definitions arrived published, and verify a `save()`
+   `Project Service Find Deployment` until `state.observed` is `RUNNING` at the pushed
+   commit, confirm the entity definitions arrived published, and verify a `save()`
    round-trips without any manual step.
-6. Push a commit that does not compile and verify the deployment reports `FAILED` with a
-   reason while the previous commit keeps running.
+6. Push a commit whose entity sources do not generate (or whose UI build fails) and verify
+   the deployment reports `FAILED` with a `failureMessage` while the previous commit keeps
+   running; push a microservice that crashes on startup and verify
+   `Microservice Deployment Service Find All For Project` reports it `FAILED`.
 7. Spot-check skill triggering: "define a kinotic entity for orders" should load
    entities-and-persistence, "publish a service" the services skill, "why isn't my
    service running" the deploying skill, and none should fire on unrelated prompts.

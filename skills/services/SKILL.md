@@ -60,8 +60,10 @@ the registration when the class is instantiated, so a prefix set afterwards leav
 service listening at the wrong address, silently. Instantiation order relative to
 `connect()` is free: registrations queue until the connection is up and re-subscribe on
 every reconnect — including across an explicit `disconnect()` / `connect()` cycle.
-Outbound calls are the opposite — invoking a proxy or sending while disconnected throws
-`You must call connect() before sending any data`; messages are never queued.
+Outbound calls are the opposite — invoking a proxy or sending before `connect()` throws
+`You must call connect on the event bus before sending any request` (and
+`The event bus is not connected to the server` once a connection has dropped); messages
+are never queued.
 
 ```typescript
 import { Kinotic } from '@kinotic-ai/core'
@@ -78,9 +80,11 @@ runtime connects at organization scope, so nothing in its credentials names the
 application.
 
 The scaffold ships this entry point at `packages/microservices/main/src/main.ts`, and
-that path is what the deployment runs. Add services by instantiating them there or by
-importing modules it pulls in — a second package under `packages/microservices/` is
-built and type-checked but **not started** by the platform.
+that is what the deployment runs. Add services by instantiating them there or by
+importing modules it pulls in, or add a second package under `packages/microservices/`:
+every package there is a microservice of its own, run in its own VM from its
+`package.json` `main` (default `src/main.ts`) with its own machine identity, so it needs
+the same entry-point wiring (`deploying` skill).
 
 `Kinotic.connect(options?)` takes an optional plain `ConnectOptions` object literal —
 every field is optional. Unset fields resolve in order: explicit value →
@@ -111,28 +115,27 @@ Other service decorators (from `@kinotic-ai/core`):
   Each instance then also listens on the shared unscoped address, where only the
   annotated methods may be invoked; an unscoped call to any other method is rejected.
 - `@Context` — marks a method whose **final** parameter receives the request context
-  (never sent by the caller). The context is `{}` unless the process registers a
-  `ContextInterceptor`, which builds it from the raw event — the caller's participant
-  arrives as the JSON `sender` header, not as a pre-populated field:
-
-  ```typescript
-  Kinotic.serviceRegistry.registerContextInterceptor({
-      intercept(event, context) {
-          return { ...context, sender: JSON.parse(event.headers.get('sender') ?? '{}') }
-      }
-  })
-  ```
+  (never sent by the caller), a `ServiceContext` whose `participant` is the caller's
+  `Participant`, parsed from the event's `sender` header before the method runs. A
+  `ContextInterceptor` registered with
+  `Kinotic.serviceRegistry.registerContextInterceptor({ intercept(event, context) })` may
+  add to that context from the raw event; none is needed to see the participant.
 
 ### Parameter and return types
 
-Arguments and results travel as JSON, and `bun run generate` (and `kinotic sync`) publishes each
-function's types to the service directory as JSON carries them:
+Arguments and results travel as JSON. When `.config/kinotic.config.ts` names `servicesPaths`
+(the directories holding `@Publish` classes), `bun run generate` (and `kinotic sync`)
+writes a `ServiceDefinitions.ts` module under `generatedPath` describing each function's
+types as JSON carries them; the entry point imports that module, and the runtime registers
+the definitions in the service directory as it connects. A project without `servicesPaths`
+generates no definitions. A declared definition whose functions differ from the class
+served fails `connect()`, so regenerate after changing a service's methods. The type rules:
 
 - **Dates are `string`s holding ISO-8601 values** (`new Date().toISOString()`), in
   parameters, results and the objects they carry. JSON has no date: a parameter declared
   `Date` receives a string at runtime, and a caller's proxy gets a string back, so a
   `Date` method call on it throws. A `Date` is still published as a date, with a warning
-  in the generate log and in the directory (the parameter's or function's `warnings`
+  in the generate log and in the definition (the parameter's or function's `warnings`
   metadata) — treat that warning as a bug and declare a `string`.
 - `Promise` / `PromiseLike` results are request-response, `Observable` results are
   streams. `any`, `unknown` and unconstrained type parameters accept anything.

@@ -62,7 +62,7 @@ matching path — the whole flow happens in their browser, so narrate what they 
    - **Grok Build** — run `/mcps`, select `kinotic-os`, and press `i` to authenticate.
 
    A browser opens on the Kinotic OS **portal** login page — the one with a "New to Kinotic?
-   **Create an organization**" link. The plugin targets the Kinotic OS dev server
+   **Create Organization**" link. The plugin targets the Kinotic OS dev server
    (`https://dev-api.kinotic.ai/mcp`, portal `https://dev-portal.kinotic.ai`); for a
    different Kinotic OS see "Other servers" below.
 2. **Existing account** — sign in, then on the consent screen ("Authorize …", with a
@@ -70,7 +70,7 @@ matching path — the whole flow happens in their browser, so narrate what they 
    returns a denial to the coding agent — the tools will not appear. If the page shows
    "Authorization request unavailable", the link is stale: start the sign-in again to
    mint a fresh one.
-3. **No account yet** — click **Create an organization** on the login page:
+3. **No account yet** — click **Create Organization** on the login page:
    - On Kinotic Cloud, sign up with GitHub — that is the only sign-up path (Kinotic projects are backed
      by GitHub repositories, so the organization starts from the user's GitHub
      identity). Users invited to an existing organization accept the emailed
@@ -83,7 +83,8 @@ matching path — the whole flow happens in their browser, so narrate what they 
      repository access. The user chooses the GitHub account or org to install into;
      that is where project repositories will be created. GitHub may interrupt with a
      sudo email code or a 2FA prompt — normal, not a Kinotic error.
-   - Signup ends on the Applications page. It does **not** return to the OAuth consent
+   - Signup ends on the portal's **Quickstart** page (the landing page until the
+     organization has its first project). It does **not** return to the OAuth consent
      screen — the authorization request is not resumed. Tell the user to go back to
      their coding agent and start the sign-in again; now signed in, they land directly
      on the consent screen — click **Approve**.
@@ -116,22 +117,24 @@ server — the tools work the same from either:
 plugin's own `kinotic-os` server stays beside it, authenticated or not as the user also uses
 Kinotic Cloud; with both connected, choose the server as described above.
 
-Two settings on that server gate this, set by whoever runs it (Kinotic Cloud has them
-in place): the server must list the coding agent's client-metadata URL in
-`kinotic.domain.oauth.allowedClientIds` (there is no dynamic client registration) —
-`https://claude.ai/oauth/claude-code-client-metadata` for Claude Code,
+Two settings on that server gate this. The server must list the coding agent's
+client-metadata URL in `kinotic.domain.oauth.allowedClientIds` (there is no dynamic client
+registration) — `https://claude.ai/oauth/claude-code-client-metadata` for Claude Code,
 `https://chatgpt.com/oauth/codex/client.json` for Codex,
-`https://kinotic.ai/oauth/grok-build-client.json` for Grok Build — and a server whose OAuth
-surface is reached at a different host than the browser uses (e.g. localhost behind a
-tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks like
-"the server never appeared" after OAuth.
+`https://kinotic.ai/oauth/grok-build-client.json` for Grok Build; the management server's
+stock configuration ships all of them, so only an operator who overrides the list must
+re-add them. And a server whose OAuth surface is reached at a different host than
+`kinotic.managementApi.apiBaseUrl` (e.g. localhost behind a tunnel) must set
+`kinotic.managementServer.issuerBaseUrl`; a plain localhost server needs nothing. Missing
+either looks like "the server never appeared" after OAuth.
 
 ## Step 1 — Create the Application
 
 1. Ask the user for an application name and one-line description if not already known.
    Any human-readable name works — the server slugifies it into the application id. It
-   is rejected only when blank, all punctuation, or slugifying to the platform-reserved
-   id `system-api`.
+   is rejected when blank, all punctuation, slugifying to the platform-reserved id
+   `system-api`, or so long that the id exceeds 34 characters (it leads the hostnames of
+   the application's sites); shorten the name then.
 2. **Ask whether people sign in, and how they share data.** Ask in plain English, and never
    show the user the `tenantManagement` setting, JSON, or code:
 
@@ -172,9 +175,10 @@ tunnel) must set `kinotic.managementServer.issuerBaseUrl`. Missing either looks 
    `{"name": ..., "description": ..., "tenantManagement": <the value step 2 picked>}`. The call is
    idempotent — if the application already exists it is returned unchanged, **including
    its existing `tenantManagement`**: the argument only applies when the application is
-   created, because changing it later would split the users into tenanted and untenanted
-   halves. An application that already exists with the other value is changed in the
-   portal (**Application → Settings → Tenants**), and only while it still has no users.
+   created. An application that already exists with the other value is changed in the
+   portal (**Application → Settings**, the **Tenants** row of the General tab); the change
+   applies to users created from then on and never moves existing users, so settle it
+   before the application has users.
 4. From the result, record `id` (the server-minted slug of the name, e.g.
    `Inventory App` → `inventory-app`) and `organizationId`. Both are needed in Step 2.
    The result's `tenantManagement` confirms what the application was created with.
@@ -212,10 +216,11 @@ project name, so a project named `main` produces a repo called `main`, and the s
 application in the same account then collides with it. The name carries the app's
 identity for the repo; the id carries the `main` convention.
 
-`organizationId` is required — the server rejects a project without it. Creation
+`organizationId` is required — the server rejects a project without it, and it does so
+after the repository has already been created, so get it right the first time. Creation
 provisions the repository from the Kinotic template — on GitHub through the organization's
-GitHub App installation — commits a rendered baseline, and deploys that baseline. The call is
-idempotent: re-running it returns the existing project unchanged.
+GitHub App installation — and commits a rendered baseline; nothing is deployed until the
+first push. The call is idempotent: re-running it returns the existing project unchanged.
 
 Handle the outcomes:
 
@@ -236,14 +241,18 @@ Handle the outcomes:
   install does not have access to the requested installation* (they authorized GitHub
   as a different user than the owner/admin of the target account — retry signed in as
   the right GitHub user); *already linked to installation N* (Unlink first).
+- **Error that a repository named `<name>` already exists** — the slugified project name is
+  taken on the host, by another application's project or by a repository an earlier failed
+  creation left behind. Ask the user for another project name, or to rename or delete that
+  repository themselves; never delete it.
 - **Result with `repoConnectionStatus: "CONNECTED"`** — proceed to Step 3.
 - **Result with `repoConnectionStatus: "INITIALIZATION_FAILED"`** — the repository was
   created but the baseline commit failed. Call the tool titled
   `Project Service Retry Repo Initialization` with `{"projectId": "<project id>"}`.
   Never call it in any other status — it fails unless the project is awaiting a retry.
   If the retry also fails, report the error to the user and stop; do not delete or
-  recreate anything. Deleting a project cascades to its deployment and machine
-  identities, so it is never a recovery step.
+  recreate anything. Deleting a project cascades to its deployment, its microservices' VMs
+  and machine identities and its UIs' sites, so it is never a recovery step.
 
 Record `repoFullName` (`owner/repo`) from the result — the repo is named after the
 slugified project name, not the project id, so never derive it. If you are ever unsure
@@ -308,11 +317,12 @@ are the source of truth.
    git so schema changes show up in diffs; never gitignore it). Never run
    `kinotic login` or `kinotic sync` yourself.
 5. **The push is the deployment.** A push to the default branch builds the project,
-   synchronizes and publishes the entity definitions, and starts (or reloads) the runtime
-   that runs `packages/microservices/main/src/main.ts`. Verify it landed with the tool titled
-   `Project Service Find Deployment` (`{"projectId": "<project id>"}`) — poll until
-   `status.type` is `RUNNING` with the pushed `commitSha`, and report a `FAILED`
-   status's `message` to the user. Full workflow and failure handling: the `deploying`
+   synchronizes and publishes the entity definitions, and starts (or reloads) a VM for
+   each microservice, the scaffold's running `packages/microservices/main/src/main.ts`.
+   Verify it landed with the tool titled `Project Service Find Deployment`
+   (`{"projectId": "<project id>"}`) — poll until `state.observed.phase` is `RUNNING` with
+   `state.observed.commitSha` at the pushed commit, and report a `FAILED` phase's
+   `failureMessage` to the user. Full workflow and failure handling: the `deploying`
    skill. Publication is what creates the entity's storage, and it makes the definition
    additive-only from then on — see `entities-and-persistence` before reshaping it.
 
