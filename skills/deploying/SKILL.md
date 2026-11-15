@@ -170,6 +170,13 @@ The deployment completed successfully when `state.observed.phase` is `RUNNING` a
 still names the previous commit means the push was not received — check that it landed on
 the default branch.
 
+Do not poll forever for a superseded commit. Once the desired state or deployment history
+confirms the target push was received, a later generation targeting another commit can
+supersede it; latest-wins may skip it entirely. Report the superseding commit instead of
+waiting for the skipped SHA. A different SHA on the first read alone proves neither order
+nor supersession: check deployment history to distinguish an unreceived push from a newer
+one. Bound the wait and report an inconclusive timeout if neither can be established.
+
 Each microservice and each UI has a deployment record of its own, in the same `state` shape:
 
 - `Microservice Deployment Service Find All For Project` (`{"projectId": …}`) lists the

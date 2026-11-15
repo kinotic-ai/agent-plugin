@@ -213,7 +213,8 @@ key is exactly `project`:
 
 Setting `id` explicitly is what makes it the `main` project: left unset the server derives
 `<applicationId>-<slugified name>`, giving the doubled `inventory-app-inventory-app`.
-**Do not put `main` in `name`** — the repository is named after the slugified
+Use the application's name unless a repository collision requires a distinct project
+name agreed with the user. **Do not put `main` in `name`** — the repository is named after the slugified
 project name, so a project named `main` produces a repo called `main`, and the second
 application in the same account then collides with it. The name carries the app's
 identity for the repo; the id carries the `main` convention.
@@ -246,8 +247,10 @@ Handle the outcomes:
   the right GitHub user); *already linked to installation N* (Unlink first).
 - **Error that a repository named `<name>` already exists** — the slugified project name is
   taken on the host, by another application's project or by a repository an earlier failed
-  creation left behind. Ask the user for another project name, or to rename or delete that
-  repository themselves; never delete it.
+  creation left behind. Establish its ownership and use before suggesting any rename or
+  deletion. If another project uses it, leave it intact and choose a distinct project name
+  with the user (the project name may differ from the application name), keeping this
+  application's project id. Never delete the conflicting repository yourself.
 - **Result with `repoConnectionStatus: "CONNECTED"`** — proceed to Step 3.
 - **Result with `repoConnectionStatus: "INITIALIZATION_FAILED"`** — the repository was
   created but the baseline commit failed. Call the tool titled
@@ -325,7 +328,11 @@ are the source of truth.
    Verify it landed with the tool titled `Project Service Find Deployment`
    (`{"projectId": "<project id>"}`) — poll until `state.observed.phase` is `RUNNING` with
    `state.observed.commitSha` at the pushed commit, and report a `FAILED` phase's
-   `failureMessage` to the user. Full workflow and failure handling: the `deploying`
+   `failureMessage` to the user. Follow the deploying skill's superseded-push handling.
+   Then inspect `Microservice Deployment Service Find All For Project` for the starter
+   microservice and report failures. A deployed VM alone does not verify service health;
+   call an application operation through its public interface when one exists.
+   Full workflow and failure handling: the `deploying`
    skill. Publication is what creates the entity's storage, and it makes the definition
    additive-only from then on — see `entities-and-persistence` before reshaping it.
 

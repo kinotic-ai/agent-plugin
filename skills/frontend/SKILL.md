@@ -236,7 +236,15 @@ the session cookie is the credential, and the gateway's login route establishes 
   wrong email or password, `400` for a blank field, or `403` when the page that sent it is
   not one of the application's UIs (its published sites, plus any origin matching the app
   server's `kinotic.appServer.localUiOriginPattern`, which a local Kinotic sets to
-  `http://localhost:<any port>` so a Vite dev server can sign in; Kinotic Cloud sets none).
+  `http://localhost:<any port>`; Kinotic Cloud sets none). This origin permission alone
+  does not make direct localhost-to-`kinotic.localhost` cookie authentication work: those
+  hosts are cross-site and the default `SameSite=Lax` cookie is withheld on cross-site
+  fetches, even with `credentials: 'include'`. For a deliberately cross-site local setup,
+  the operator must configure `kinotic.apiGateway.sessionCookieSameSite: NONE` on the app
+  server and the browser must permit third-party cookies; the cookie remains Secure, so
+  its transport must also be accepted by the browser. Do not change production defaults
+  for a local UI. Verify the complete login/session/WebSocket flow in a browser, or use
+  the published local site, whose host shares the API's site.
   The user must exist in **that application's** user base (portal, Application →
   **Users**); the route does not authenticate organization members.
 - `GET /api/auth/me` answers `204` when the browser holds a live session and `401`

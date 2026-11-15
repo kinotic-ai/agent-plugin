@@ -155,8 +155,9 @@ Three consequences shape every skill in this plugin:
   Machines page does not mint. Running your services means pushing.
 - **A published entity definition is additive-only.** The push publishes new entities and
   creates their storage, but from then on only new fields apply in place — a rename or
-  type change needs a new entity with a `REINDEX` migration copying the rows, or an
-  un-publish that drops the index and its data.
+  type change needs a new entity with a `REINDEX` migration whose `SCRIPT` transforms
+  renamed fields or changed values to match the destination mapping (see the persistence
+  skill), or an un-publish that drops the index and its data.
 
 
 Kinotic OS mints MCP tool names as opaque base-36 hashes (≤ 25 chars of `[0-9a-z]`),

@@ -213,7 +213,8 @@ The single argument key is exactly `project`:
 - `applicationId` and `name` are required. A supplied `id` is used as given; left unset
   the server derives `<applicationId>-<slugified name>` (`inventory-app-inventory-app`).
   Pass `<applicationId>-main` so an application's default project is its `main` project.
-- `name` must stay the application's name, not `main`: the repo is named from the
+- Default `name` to the application's name, not `main`; use a distinct name agreed with
+  the user if the repository name is taken: the repo is named from the
   slugified **name**, so naming the project `main` creates a repo called `main` that the
   next application in the same account collides with.
 - `organizationId` must match the authenticated organization. Missing or mismatched
@@ -258,8 +259,9 @@ Errors:
 - `"A repository named '<name>' already exists in the GitHub account '<owner>' …"` — the
   slugified project name is taken on the host by a repository that is not this project's
   (another application's project of the same name, or one left by an earlier failed
-  creation). Choose another project name, or have the user rename or delete that
-  repository; never delete it yourself.
+  creation). Establish ownership and impact first. Leave another project's repository
+  intact and choose a distinct project name with the user; the name may differ from the
+  application name. Never delete a conflicting repository yourself.
 - `"Project for id <id> already exists"` — the id is taken by a project that did not match
   the lookup; report it to the user.
 

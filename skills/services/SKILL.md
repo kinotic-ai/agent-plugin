@@ -128,8 +128,19 @@ Arguments and results travel as JSON. When `.config/kinotic.config.ts` names `se
 writes a `ServiceDefinitions.ts` module under `generatedPath` describing each function's
 types as JSON carries them; the entry point imports that module, and the runtime registers
 the definitions in the service directory as it connects. A project without `servicesPaths`
-generates no definitions. A declared definition whose functions differ from the class
-served fails `connect()`, so regenerate after changing a service's methods. The type rules:
+generates no definitions. Import the generated module before instantiating any service:
+registration captures the definition at instantiation and does not backfill it later.
+When a service module instantiates classes at module scope, load the definitions before
+importing that module too. For `generatedPath: 'generated'` and the standard main entry:
+
+```typescript
+import '../../../../generated/ServiceDefinitions.ts'
+// Set Kinotic.zonePrefix as shown above before constructing services.
+// await import('./services.ts') // when this module instantiates services at module scope
+```
+
+A declared definition whose functions differ from the class served fails service
+registration, so regenerate after changing a service's methods. The type rules:
 
 - **Dates are `string`s holding ISO-8601 values** (`new Date().toISOString()`), in
   parameters, results and the objects they carry. JSON has no date: a parameter declared

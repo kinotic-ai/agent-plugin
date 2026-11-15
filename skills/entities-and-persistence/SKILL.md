@@ -117,7 +117,18 @@ its data, so the rename silently leaves a stale field behind. There are two ways
   underlying index with all its data**. Fine while a model is still being shaped and the
   data is throwaway; never do it to a user's real data without asking.
 - **A new entity beside the old one**, with a `REINDEX` migration in `./migrations` that
-  copies the rows across (see below), which is the answer once data matters.
+  copies the rows across (see below), which is the answer once data matters. Use its
+  `SCRIPT` option to rename/remove fields or convert values to the destination's strict
+  mapping; a plain copy retains every old field name.
+
+  For a destination `PersonV2` mapping `givenName` instead of `firstName`, and all the
+  source's other fields:
+
+  ```sql
+  REINDEX Person INTO PersonV2 WITH (
+      SCRIPT = 'ctx._source.givenName = ctx._source.remove("firstName")'
+  );
+  ```
 
 So the first shape an entity is pushed with is the cheap one to get right. Think the
 fields through before the first push rather than reshaping afterwards.
@@ -233,9 +244,9 @@ carry real weight:
   so naming one sub-field changes only that one and `null` clears one.
 
   ```sql
-  INSERT INTO Person (id, tenantId, firstName, address)
-      VALUES ('p-1', 'acme', 'Jane', { street: '1 Main St', city: 'Springfield' }) WITH REFRESH;
-  UPDATE Person SET address = { city: 'Shelbyville' } WHERE id = 'p-1' WITH REFRESH;
+  INSERT INTO Person (id, firstName, lastName, bio, age)
+      VALUES ('p-1', 'Jane', 'Doe', '', 28) WITH REFRESH;
+  UPDATE Person SET bio = 'Warehouse manager' WHERE id = 'p-1' WITH REFRESH;
   ```
 
 Grammar: <https://kinotic.ai/apps/reference/migration-sql-grammar>.
@@ -262,7 +273,8 @@ moved, so they stay in the tenants they were added to beside the new users' own 
 It is set on the Application, not on the project: `Application Service Create Application
 If Not Exist` takes it as an argument at creation, and afterwards it changes in the
 portal (Application → **Settings**, the **Tenants** row of the General tab; `Application
-Service Save` writes it too). The create-app skill picks it from the app's tenant
+Service Save` writes it too, replacing the whole document: fetch the current Application
+and preserve its complete settings when saving, or use the portal). The create-app skill picks it from the app's tenant
 model, and the application's `tenantManagement` says which it is. Under `SYSTEM` each entity
 chooses `SHARED` for rows private to each user and `NONE` for rows every user sees; under
 `TENANT_ADMINISTRATORS`, `SHARED` for rows each tenant keeps to itself and `NONE` for rows
