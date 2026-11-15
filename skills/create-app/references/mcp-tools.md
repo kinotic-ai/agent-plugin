@@ -40,10 +40,22 @@ These services carry a type-level `@McpTool`, so **every** function on them is a
 | Title prefix | Service |
 |---|---|
 | `Application Service` | The organization's applications |
-| `Project Service` | Projects, their Git repositories and deployments |
+| `Project Service` | Projects, their Git repositories, deployments, deployment history and SBOM (`… Find Deployment`, `… Find Deployment History`, `… Find All Deployment History`, `… Find Dependencies`) |
 | `Project Repo Credential Service` | Tokens for writing a project's repository |
 | `Tenant Service` | The tenants of the organization's applications |
-| `Owned Oidc Configuration Service` | The organization's own sign-in providers |
+| `Owned Oidc Configuration Service` | The organization's own OIDC sign-in providers (`… Find All`, `… Find Managed Providers`, `… Find By Id`, `… Find Callback Url`, `… Save`, `… Delete Client Secret`, `… Copy`, `… Delete By Id`) |
+| `Vulnerability Alert Service` | The organization's project vulnerability alerts: project findings, paged inbox, unacknowledged count and acknowledgement |
+| `Owned Password Configuration Service` | The organization's email-and-password sign-in configurations (`… Find All`, `… Save`, `… Delete By Id`) |
+
+Two more services expose a subset of their functions:
+
+| Title | Purpose |
+|---|---|
+| `Microservice Deployment Service Find All For Project` / `… Find History` / `… Restart` | A project's microservice deployments, their history, and a restart in a fresh VM |
+| `Ui Deployment Service Find All For Project` / `… Find All For Application` / `… Find History` | A project's or an application's UI deployments and their history |
+
+Removing a microservice or UI deployment is not a tool: it stays with the console. The
+`deploying` skill documents what these return.
 
 `Application Service` and `Project Service` also expose the functions they inherit from the CRUD hierarchy:
 
@@ -69,9 +81,10 @@ the user explicitly asks for that exact operation:
 - `Application Service Delete By Id` is guarded server-side
   (`Cannot delete an application with projects in it.`).
 - `Project Service Delete By Id` has no such guard, and deleting a project **cascades**:
-  its deployment record and both of its machine identities go with it, cutting off any
-  workload still running. The checkout and runtime VM on the node are not reachable from
-  the management plane; deleting the runtime machine is what strands them.
+  its deployment's worker removes every one of its microservice deployments (stopping each
+  VM and deleting its machine identity) and UI deployments (taking each site down and
+  deleting its files), then stops the deployment's own workloads, removes the sync machine
+  identity and deletes the deployment, SBOM and vulnerability alert records.
 
 ## ApplicationService
 
@@ -89,8 +102,10 @@ Arguments:
 ```
 
 Any human-readable `name` works — the server slugifies it into the id (lowercase
-letters, digits, interior dashes). It fails only when the name is blank, slugifies to
-nothing (all punctuation), or slugifies to the platform-reserved id `system-api`.
+letters, digits, interior dashes). It fails when the name is blank, slugifies to
+nothing (all punctuation), slugifies to the platform-reserved id `system-api`, or is too
+long: the id must leave room for a UI name in the sites' hostname labels, so an id over 34
+characters is refused with a message ending `shorten the application name`.
 
 `tenantManagement` decides who creates the application's tenants:
 
@@ -120,7 +135,6 @@ Result (Application):
   "tenantManagement": "SYSTEM",
   "primaryUiId": null,
   "primaryUiUrl": null,
-  "socialProviders": [],
   "updated": "2026-07-29T00:00:00.000Z"
 }
 ```
@@ -130,7 +144,8 @@ result with the other value means the application already existed with it; tell 
 before continuing.
 
 `id` is the server-minted slug of `name`. `organizationId` is derived from the
-authenticated user — pass both into project creation.
+authenticated user — pass both into project creation. `primaryUiId` and `primaryUiUrl` name
+the first UI the application published, once it has one.
 
 ### `Application Service Get Login Methods`
 
@@ -174,10 +189,10 @@ is `webBaseUrl` + `/` + its `repoFullName`.
 
 ### `Project Service Create Project If Not Exist`
 
-Creates a project, provisions its repository from the Kinotic template on the repository
-host — on GitHub through the organization's GitHub App installation — and deploys the
-template's commit. Returns the existing project unchanged if one with the same id exists.
-Idempotent.
+Creates a project and provisions its repository from the Kinotic template on the repository
+host — on GitHub through the organization's GitHub App installation. Nothing is deployed
+until the first push. Returns the existing project unchanged if one with the same id
+exists. Idempotent.
 
 The single argument key is exactly `project`:
 
@@ -198,12 +213,15 @@ The single argument key is exactly `project`:
 - `applicationId` and `name` are required. A supplied `id` is used as given; left unset
   the server derives `<applicationId>-<slugified name>` (`inventory-app-inventory-app`).
   Pass `<applicationId>-main` so an application's default project is its `main` project.
-- `name` must stay the application's name, not `main`: the repo is named from the
+- Default `name` to the application's name, not `main`; use a distinct name agreed with
+  the user if the repository name is taken: the repo is named from the
   slugified **name**, so naming the project `main` creates a repo called `main` that the
   next application in the same account collides with.
-- `organizationId` is **required**, not just constrained: omitting it fails with
-  `Organization id must be set on Project`, and a mismatch fails with
-  `Cannot save Project with organizationId '<x>' while authenticated as organization '<y>'`.
+- `organizationId` must match the authenticated organization. Missing or mismatched
+  values fail before repository provisioning with `Cannot create a project of
+  organization '<x>' while authenticated as organization '<y>'` (a missing value is
+  rendered as `null`). Take it from the Application result. Correct the value and retry;
+  this validation failure creates no repository.
 - The repository is named after the slugified project **name** (truncated to
   100 chars), created under the account holding the GitHub App installation, or on a
   local Kinotic under the organization's id — record `repoFullName` from the result rather
@@ -238,6 +256,14 @@ Errors:
   (`GITHUB` only) — the organization has no GitHub App installation. The user links GitHub in the
   Kinotic OS portal (Organization settings → Integrations → GitHub → Link GitHub), then
   the same call is re-run.
+- `"A repository named '<name>' already exists in the GitHub account '<owner>' …"` — the
+  slugified project name is taken on the host by a repository that is not this project's
+  (another application's project of the same name, or one left by an earlier failed
+  creation). Establish ownership and impact first. Leave another project's repository
+  intact and choose a distinct project name with the user; the name may differ from the
+  application name. Never delete a conflicting repository yourself.
+- `"Project for id <id> already exists"` — the id is taken by a project that did not match
+  the lookup; report it to the user.
 
 ### `Project Service Retry Repo Initialization`
 
@@ -258,16 +284,19 @@ Errors:
 - `"Project <projectId> is not awaiting initialization retry (status <status>)"` — the
   project is not in `INITIALIZATION_FAILED`; never call this tool speculatively.
 - `"Project repoId must be set to reinitialize"` (likewise `repoFullName` /
-  `repoDefaultBranch`) — provisioning never got far enough for a retry; re-run project
-  creation instead.
+  `repoDefaultBranch`; a `GITEA` host checks only the last two) — provisioning never got
+  far enough for a retry. Report the incomplete repository binding to the user for
+  operator repair. Re-running creation returns the existing project unchanged; never
+  delete the project or guess replacement repository fields to work around it.
 - `"GitHub is not linked for this organization. …"` — the installation disappeared
   between create and retry; back to GitHub linking.
 
 ### `Project Service Find Deployment`
 
-Read-only. Returns the project's deployment record — where its code is running and which
-commit is live — or `null` when the project has never been deployed. This is how a push
-is verified; see the `deploying` skill for the whole workflow.
+Read-only. Returns the project's deployment record — where its code is running, the
+artifacts of the synced commit, and what the deployment should be beside what it is — or
+`null` when the project has never been deployed. This is how a push is verified; see the
+`deploying` skill for the whole workflow.
 
 Arguments:
 
@@ -284,19 +313,59 @@ Result (ProjectDeployment), `id` always equal to the project id:
   "applicationId": "inventory-app",
   "nodeId": "node-1",
   "hostDir": "<node workload data dir>/projects/inventory-app-main",
-  "runtimeWorkloadId": "wl-…",
+  "syncWorkloadId": "wl-…",
+  "uiPublishWorkloadId": "wl-…",
+  "sbomWorkloadId": null,
   "syncMachineIdentityId": "…",
-  "runtimeMachineIdentityId": "…",
-  "commitSha": "9f2c1ab…",
+  "artifacts": {
+    "commitSha": "9f2c1ab…",
+    "microservices": [{ "name": "main", "dir": "packages/microservices/main", "entry": "src/main.ts" }],
+    "uis": [{ "name": "admin", "dir": "packages/ui/admin" }],
+    "dependencyHash": "…"
+  },
+  "sbomGenerated": true,
   "lastJobRunId": "…",
-  "status": { "type": "RUNNING", "message": null },
+  "failureMessage": null,
+  "state": {
+    "desired": { "phase": "RUNNING", "commitSha": "9f2c1ab…" },
+    "observed": { "phase": "RUNNING", "commitSha": "9f2c1ab…" },
+    "generation": 3,
+    "desiredAt": 1785000000000,
+    "observedGeneration": 3,
+    "reconciled": true,
+    "conditions": [],
+    "parent": null,
+    "dirty": false,
+    "dirtyAt": 0,
+    "unrecorded": {},
+    "deletionRequested": null
+  },
   "created": "2026-07-29T00:00:00.000Z",
   "updated": "2026-07-29T00:00:00.000Z"
 }
 ```
 
-`status.type` is `DEPLOYING`, `RUNNING`, or `FAILED`; `status.message` carries the last
-job's failure reason when there is one. Errors with `"projectId must not be blank"`.
+`state.desired` is the commit the last default-branch push asked for, always with the phase
+`RUNNING`. `state.observed.phase` is `DEPLOYING` (a job runs; `observed.commitSha` is the
+previous successful deployment), `RUNNING` (`observed.commitSha` is live) or `FAILED` (`failureMessage`
+carries the reason; the retained `observed.commitSha` may differ from what individual
+microservices or UIs already serve). A successful deployment is confirmed when `observed`
+is `RUNNING` at the pushed commit; inspect individual records after a partial failure.
+Errors with `"projectId must not be blank"`.
+
+### `Project Service Find Deployment History`
+
+Read-only. `{"projectId": …, "pageable": …}` returns a page of ledger entries (`WatchEvent`)
+of what happened to the project's deployment and to the deployment jobs, build VMs,
+microservice deployments and UI deployments it made, newest first, with what caused each;
+empty when the project has never been deployed.
+
+### `Project Service Find Dependencies`
+
+Read-only. `{"projectId": …}` returns the project's SBOM — every package version its
+`bun.lock` installs and which depends on which — or `null` while the project has no SBOM of
+the dependencies its last sync reported (`sbomGenerated` on the deployment record says
+whether it does).
 
 ### `Project Service Find by GitHub Repo`
 
@@ -338,6 +407,32 @@ Result (ProjectRepoToken):
 
 The token is good for an hour. Git presents it over HTTP as the password of the user
 `x-access-token`; the `create-app` skill's Step 3 shows the clone and the push. Request a
-fresh token for each push. Errors with `"projectId is required"`, and with a message
-starting `Project <projectId> of organization <organizationId> has no` when the project is
-not one of the caller's organization's or has no repository.
+fresh token for each push. Errors with `"projectId is required"`, with a message starting
+`Project <projectId> of organization <organizationId> has no` when the project is not one
+of the caller's organization's or has no repository, and on GitHub with
+`"GitHub install for organization <organizationId> no longer exists"` when the installation
+was removed — back to GitHub linking.
+
+## VulnerabilityAlertService
+
+Qualified name: `management-api~org.kinotic.management.api.services.vulnerability.VulnerabilityAlertService`
+
+All calls are scoped to the authenticated organization. Select tools by their description's
+full title prefix, as for the other services.
+
+| Title | Arguments | Result |
+|---|---|---|
+| `Vulnerability Alert Service Find All For Project` | `{"projectId": "inventory-app-main"}` | Alert list, most severe first |
+| `Vulnerability Alert Service Find All` | `{"pageable": ...}` (use the tool's input schema) | Page of alerts across the organization |
+| `Vulnerability Alert Service Count Unacknowledged` | `{}` | Number of unacknowledged alerts |
+| `Vulnerability Alert Service Acknowledge` | `{"alertId": "<id from result>"}` | `null`; marks the alert as seen, idempotently |
+
+An alert has `id`, `organizationId`, `applicationId`, `projectId`, `created`,
+`acknowledged`, and `finding`. The finding has `advisoryId`, `aliases` (including CVEs where
+known), `summary`, `type` (`VULNERABILITY` or `MALICIOUS`), `severity`, and `packages`.
+Each affected package has `purl` (with its installed version) and `fixedIn` (null when no
+fix is known). Severity is `CRITICAL`, `HIGH`, `MODERATE`, `LOW` or `UNKNOWN`.
+
+Acknowledging an alert does not remove it or fix the dependency. Findings are informational,
+not deployment gates. An empty list does not prove a successful scan: scan errors are logged,
+and alerts can describe an older SBOM while `sbomGenerated` is false. See the deploying skill.

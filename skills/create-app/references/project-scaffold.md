@@ -66,11 +66,9 @@ directories holding a `.gitkeep`.
 Workspace packages reference the catalog (`"@kinotic-ai/core": "catalog:"`) so the
 Kinotic SDK version is pinned once at the root. The versions are not written by the
 template — Kinotic OS injects the ones the server ships with when it renders the repo, so
-a fresh project always matches its server. They are exact versions, with no `^`: a caret on
-a beta also accepts later betas, which may be built for a different server. A project whose
-root `package.json` has `^` ranges on `@kinotic-ai/*` was created before the template pinned
-them; remove the `^` from each and run `bun install` again. Never bump an `@kinotic-ai/*`
-version past the one the template wrote.
+a fresh project always matches its server. Leave them as the template wrote them: never
+bump an `@kinotic-ai/*` version past the one the template wrote, and never edit the
+ranges by hand.
 
 The current SDK line is `@kinotic-ai/core` and `@kinotic-ai/persistence` on
 `5.0.0-beta.x`, `@kinotic-ai/management-api` on `5.0.0-beta.x`, and the CLI on `5.2.x`.
@@ -118,8 +116,12 @@ export default config
 - `entitiesPaths[].path` is where `@Entity` classes are discovered;
   `repositoryPath` is where repository classes are generated. Trust the values in the
   cloned config over the ones shown here.
-- Optional fields the template leaves out: `name`, `description`, `generatedPath` (the
-  fallback repository output for plain-string `entitiesPaths` entries).
+- Optional fields the template leaves out: `name`, `description`, `servicesPaths` (the
+  directories to search for `@Publish` classes) and `generatedPath` (where the
+  `ServiceDefinitions.ts` module describing those services is written, and the fallback
+  repository output for plain-string `entitiesPaths` entries). Setting `servicesPaths`
+  without `generatedPath` fails generation; see the `services` skill for what the module
+  does.
 
 ## The microservice entry point
 
@@ -192,7 +194,9 @@ depth. Register it in `bunup.config.ts` and run `bun install` so the workspace l
 Two things make it a publishable UI rather than a library:
 
 1. Its `package.json` declares a **`build` script** and a `name` whose unscoped part is a
-   valid label (lowercase letters, digits, interior dashes), unique among the project's UIs.
+   valid label (lowercase letters, digits, interior dashes, no `--`), unique among the
+   application's UIs across all its projects, and short enough that
+   `<applicationId>--<uiName>` fits in 37 characters.
 2. Its build writes **`dist/index.html`** — a build that leaves none fails the deployment,
    naming the UI.
 

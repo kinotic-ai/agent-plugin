@@ -1,6 +1,6 @@
 {
   "name": "kinotic",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "Build Kinotic applications: onboard onto Kinotic OS, create apps and projects through the Kinotic MCP server, and develop, deploy, and run entities, services, and frontends",
   "author": {
     "name": "Kinotic AI",
@@ -27,7 +27,7 @@
   "interface": {
     "displayName": "Kinotic",
     "shortDescription": "Build, deploy, and run Kinotic applications",
-    "longDescription": "Connect to Kinotic OS, create an application and its GitHub-backed project, and develop entities, services, and frontends that deploy on every push to the default branch.",
+    "longDescription": "Connect to Kinotic OS, create an application and its Git repository-backed project, and develop entities, services, and frontends that deploy on every push to the default branch.",
     "developerName": "Kinotic AI",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write"],
