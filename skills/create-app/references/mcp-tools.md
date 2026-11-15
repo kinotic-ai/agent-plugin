@@ -44,6 +44,7 @@ These services carry a type-level `@McpTool`, so **every** function on them is a
 | `Project Repo Credential Service` | Tokens for writing a project's repository |
 | `Tenant Service` | The tenants of the organization's applications |
 | `Owned Oidc Configuration Service` | The organization's own OIDC sign-in providers (`… Find All`, `… Find Managed Providers`, `… Find By Id`, `… Find Callback Url`, `… Save`, `… Delete Client Secret`, `… Copy`, `… Delete By Id`) |
+| `Vulnerability Alert Service` | The organization's project vulnerability alerts: project findings, paged inbox, unacknowledged count and acknowledgement |
 | `Owned Password Configuration Service` | The organization's email-and-password sign-in configurations (`… Find All`, `… Save`, `… Delete By Id`) |
 
 Two more services expose a subset of their functions:
@@ -83,7 +84,7 @@ the user explicitly asks for that exact operation:
   its deployment's worker removes every one of its microservice deployments (stopping each
   VM and deleting its machine identity) and UI deployments (taking each site down and
   deleting its files), then stops the deployment's own workloads, removes the sync machine
-  identity and deletes the deployment and SBOM records.
+  identity and deletes the deployment, SBOM and vulnerability alert records.
 
 ## ApplicationService
 
@@ -215,12 +216,11 @@ The single argument key is exactly `project`:
 - `name` must stay the application's name, not `main`: the repo is named from the
   slugified **name**, so naming the project `main` creates a repo called `main` that the
   next application in the same account collides with.
-- `organizationId` is **required**, not just constrained: omitting it fails with
-  `Organization id must be set on Project`, and a mismatch fails with
-  `Cannot save Project with organizationId '<x>' while authenticated as organization '<y>'`.
-  That check runs on the save, after the repository has already been created on the host,
-  so a re-run with the id corrected finds no project and tries to create the repository
-  again, failing on its taken name (below). Get `organizationId` right the first time.
+- `organizationId` must match the authenticated organization. Missing or mismatched
+  values fail before repository provisioning with `Cannot create a project of
+  organization '<x>' while authenticated as organization '<y>'` (a missing value is
+  rendered as `null`). Take it from the Application result. Correct the value and retry;
+  this validation failure creates no repository.
 - The repository is named after the slugified project **name** (truncated to
   100 chars), created under the account holding the GitHub App installation, or on a
   local Kinotic under the organization's id — record `repoFullName` from the result rather
@@ -343,9 +343,11 @@ Result (ProjectDeployment), `id` always equal to the project id:
 
 `state.desired` is the commit the last default-branch push asked for, always with the phase
 `RUNNING`. `state.observed.phase` is `DEPLOYING` (a job runs; `observed.commitSha` is the
-commit still live), `RUNNING` (`observed.commitSha` is live) or `FAILED` (`failureMessage`
-carries the reason; `observed.commitSha` is still the previous commit). The pushed commit is
-live when `observed` is `RUNNING` at that commit. Errors with `"projectId must not be blank"`.
+previous successful deployment), `RUNNING` (`observed.commitSha` is live) or `FAILED` (`failureMessage`
+carries the reason; the retained `observed.commitSha` may differ from what individual
+microservices or UIs already serve). A successful deployment is confirmed when `observed`
+is `RUNNING` at the pushed commit; inspect individual records after a partial failure.
+Errors with `"projectId must not be blank"`.
 
 ### `Project Service Find Deployment History`
 
@@ -406,3 +408,27 @@ fresh token for each push. Errors with `"projectId is required"`, with a message
 of the caller's organization's or has no repository, and on GitHub with
 `"GitHub install for organization <organizationId> no longer exists"` when the installation
 was removed — back to GitHub linking.
+
+## VulnerabilityAlertService
+
+Qualified name: `management-api~org.kinotic.management.api.services.vulnerability.VulnerabilityAlertService`
+
+All calls are scoped to the authenticated organization. Select tools by their description's
+full title prefix, as for the other services.
+
+| Title | Arguments | Result |
+|---|---|---|
+| `Vulnerability Alert Service Find All For Project` | `{"projectId": "inventory-app-main"}` | Alert list, most severe first |
+| `Vulnerability Alert Service Find All` | `{"pageable": ...}` (use the tool's input schema) | Page of alerts across the organization |
+| `Vulnerability Alert Service Count Unacknowledged` | `{}` | Number of unacknowledged alerts |
+| `Vulnerability Alert Service Acknowledge` | `{"alertId": "<id from result>"}` | `null`; marks the alert as seen, idempotently |
+
+An alert has `id`, `organizationId`, `applicationId`, `projectId`, `created`,
+`acknowledged`, and `finding`. The finding has `advisoryId`, `aliases` (including CVEs where
+known), `summary`, `type` (`VULNERABILITY` or `MALICIOUS`), `severity`, and `packages`.
+Each affected package has `purl` (with its installed version) and `fixedIn` (null when no
+fix is known). Severity is `CRITICAL`, `HIGH`, `MODERATE`, `LOW` or `UNKNOWN`.
+
+Acknowledging an alert does not remove it or fix the dependency. Findings are informational,
+not deployment gates. An empty list does not prove a successful scan: scan errors are logged,
+and alerts can describe an older SBOM while `sbomGenerated` is false. See the deploying skill.

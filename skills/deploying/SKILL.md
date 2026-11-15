@@ -4,7 +4,8 @@ description: >
   How a Kinotic project runs: pushing to the default branch builds and deploys it, the
   deployment job's six steps, checking deployment status and the deployed commit with
   the Project Service Find Deployment MCP tool and the per-microservice and per-UI
-  deployment tools, diagnosing a FAILED deployment, the machine identities the deployment
+  deployment tools, diagnosing a FAILED deployment, inspecting project vulnerability alerts,
+  the machine identities the deployment
   provisions, and what can and cannot be run locally.
   Use when deploying, running, restarting, or releasing a Kinotic app, checking whether
   a service is live, or working out why a push did not take effect.
@@ -86,8 +87,8 @@ steps:
    writes no `dist/index.html` fails the step naming the UI. **This step is the build
    gate**: it fails when generation fails, when the server rejects an entity definition, a
    named query or a migration, when a package is not named validly, or when a UI build
-   fails, and nothing of the commit reaches the running services. Only after it fully
-   succeeds does it write the reload sentinel. The VM is destroyed when its run ends,
+   fails. Only after it fully succeeds does it write the reload sentinel; the shared
+   checkout and entity synchronization are not rolled back on failure. The VM is destroyed when its run ends,
    whatever the outcome; its log stays readable from the job run.
 3. **Resolve artifacts** — binds the artifacts the build VM reported into the run; the
    step's row on the job run page lists each microservice with its entry module and each UI.
@@ -107,7 +108,10 @@ steps:
 
 Consequences worth stating to a user:
 
-- A failed build leaves the **previously deployed commit running**. Nothing is torn down.
+- A failed sync does not write the reload sentinel or run the later deployment tasks.
+  It is not a rollback: entity definitions and migrations may already have applied, and
+  existing runtimes share the checkout the sync modified. A process that restarts can
+  therefore load changed code even without a new sentinel.
 - Deployments serialize per project, **latest-wins**: pushes arriving during a deployment
   collapse to the newest commit; intermediate commits are skipped, not queued.
 - Redelivering the same push is harmless — syncing a commit twice converges.
@@ -121,10 +125,9 @@ Consequences worth stating to a user:
   workload keeps running and its site keeps serving. One that comes back is adopted rather
   than re-provisioned. Removing it for real is a console action.
 - **The build gate does not type-check microservice code.** The sync step generates from the
-  entity sources and builds the UIs, but a microservice is only run, by its VM, so a type
-  error or a crash on startup in a service surfaces as a `FAILED` microservice deployment
-  with its process restarting, not as a failed job. Run `bun run type-check` locally before
-  pushing.
+  entity sources and builds the UIs; a microservice is executed by Bun without type-checking.
+  A type error may still run. Inspect the microservice deployment for runtime failures;
+  they are not a substitute for `bun run type-check` locally before pushing.
 
 ## Checking a deployment
 
@@ -157,11 +160,11 @@ with the pushed commit. `state.observed` is what the deployment is:
 
 | `state.observed.phase` | Meaning | What to tell the user |
 |---|---|---|
-| `DEPLOYING` | A job is running for the latest qualifying push; `observed.commitSha` is the commit still live | Wait and re-check; the job page shows live steps |
+| `DEPLOYING` | A job is running for the latest qualifying push; `observed.commitSha` retains the previous successful deployment | Wait and re-check; the job page shows live steps |
 | `RUNNING` | Every step passed; `observed.commitSha` is live | Compare `observed.commitSha` to the pushed commit |
-| `FAILED` | The last deployment failed | `failureMessage` carries the reason; `observed.commitSha` is still the previous commit |
+| `FAILED` | The last deployment failed | Read `failureMessage` and the individual microservice/UI records; the project's retained `observed.commitSha` does not establish what is serving after a partial deployment |
 
-The pushed commit is live exactly when `state.observed.phase` is `RUNNING` and
+The deployment completed successfully when `state.observed.phase` is `RUNNING` and
 `state.observed.commitSha` is the pushed commit. Poll rather than assume: after pushing,
 `findDeployment` moves `DEPLOYING` → `RUNNING`/`FAILED`. A `state.desired.commitSha` that
 still names the previous commit means the push was not received — check that it landed on
@@ -192,9 +195,10 @@ Each microservice and each UI has a deployment record of its own, in the same `s
 the build gate: generation failed, the server rejected an entity change, or a UI build
 failed. Reproduce it locally first — `bun install && bun run generate` runs the same
 generation the sync step does, and `bun run type-check` catches what the sync step does not
-— then fix and push again. A `RUNNING` project whose service does not answer is a
-microservice that crashed on startup: `Microservice Deployment Service Find All For Project`
-shows it `FAILED` with its `failureMessage`.
+— then fix and push again. For a `RUNNING` project whose service does not answer, inspect
+`Microservice Deployment Service Find All For Project` first. A runtime failure is reported
+there with its `failureMessage`; a missing runtime failure still leaves connection,
+authentication and service addressing to check.
 
 Deployment logs are **not** reachable through MCP: `LogService` streams workload logs but
 is not exposed as a tool. Send the user to the portal for anything the messages do not
@@ -211,6 +215,29 @@ answer:
 Never try to "fix" a deployment by deleting and recreating the project — that removes
 the project's machine identities, deployment records, microservice VMs and UI sites along
 with it.
+
+## SBOM and vulnerability alerts
+
+The SBOM inventories the versions and dependency relationships in `bun.lock`; it is not
+an inventory of a built UI bundle or a container image. The deployment generates it after
+runtime deployment and UI publication, reusing it when the dependency fingerprint is
+unchanged. Recording an SBOM checks it against the stored npm OSV advisories, including
+malicious-package advisories. OSV imports update alerts hourly; a daily scan reconciles
+all stored project SBOMs.
+
+Call `Vulnerability Alert Service Find All For Project` with `{"projectId": "<id>"}` to
+inspect findings. Each alert carries its advisory, severity, affected package versions,
+known fixes and acknowledgement state. A dependency change keeps the earlier SBOM's alerts
+until the replacement SBOM is recorded; `sbomGenerated: false` means they may describe
+older dependencies.
+
+These alerts are informational: findings do not reject deployment, and a scan error is
+logged without failing SBOM recording. `RUNNING`, `sbomGenerated: true`, or an empty alert
+list is not a security approval or proof that a scan completed successfully. Report the
+findings when the task calls for a security review. QA/production promotion gates are not
+implemented by this deployment path. `Vulnerability Alert Service Acknowledge` marks an alert as seen, not fixed, and is
+used only when the user asks to acknowledge it. The tool contracts are in create-app's
+`references/mcp-tools.md`.
 
 ## Machine identities
 

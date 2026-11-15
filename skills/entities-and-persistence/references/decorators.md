@@ -29,7 +29,7 @@ decorators with no runtime behavior — the tooling reads them from the TypeScri
 | `@Flattened` | `Record<string, ...>` | Dynamic key-value maps indexed as keywords. |
 | `@Nested` | `Something[]` | Array elements stay independently queryable (no cross-matching between elements). |
 | `@Version` | `version: string \| null = null` | Optimistic locking; stale saves fail with a conflict. |
-| `@TenantId` | `string` | Optional, with `MultiTenancyType.SHARED`: exposes the row's tenant id on the entity, filled from the authenticated user on save (a user may not set another). A `SHARED` entity is isolated by tenant without it. |
+| `@TenantId` | `string` | Optional, with `MultiTenancyType.SHARED`: Exposes the row's tenant id and enables the generated admin repository. A user client's blank value is filled from its tenant; a different tenant is rejected. An organization-scope backend supplies the tenant on writes and selects tenants explicitly on admin reads. A `SHARED` entity is isolated by tenant without it. |
 | `@DateTime` | `string` or `string[]` holding ISO-8601 dates | Stored and queried as a date, so it sorts and range-queries by time. Set it with `new Date().toISOString()`. |
 | `@TimeReference` | `timestamp: string = new Date().toISOString()` | With `EntityType.STREAM`: the time-series timestamp field. Pair it with `@DateTime`. |
 

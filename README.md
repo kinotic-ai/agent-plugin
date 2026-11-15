@@ -131,7 +131,7 @@ and push with a token Kinotic issues on either.
 | `entities-and-persistence` skill | Entity classes and decorators, `bun run generate`, repository API, named queries, migrations, multi-tenancy |
 | `services` skill | Publishing services with `@Publish`, zones and addressing, the organization scope a service host needs, service proxies, streaming |
 | `frontend` skill | How the UI resolves the server URL, the UI build contract every published UI must honor, connecting browser and Node clients, authentication recipes, application users and OIDC, calling services from the UI |
-| `deploying` skill | Push-to-deploy: what the platform actually runs, the deployment job, checking status with `Project Service Find Deployment`, diagnosing failures, machine identities, what can be run locally |
+| `deploying` skill | Project SBOMs and informational vulnerability alerts; push-to-deploy: what the platform actually runs, the deployment job, checking status with `Project Service Find Deployment`, diagnosing failures, machine identities, what can be run locally |
 | `new-app` command | Deterministic entry point that runs the create-app workflow: `/kinotic:new-app` in Claude Code, `/new-app` in Grok Build; Codex offers `create-app` as the plugin's setup skill |
 
 ## How a Kinotic app fits together
@@ -141,8 +141,9 @@ runs a sandboxed build VM that checks the commit out, installs, runs `kinotic sy
 (which regenerates from the entity sources, pushes and publishes the entity definitions and
 named queries, and applies migrations) and builds every UI; then it leaves every
 microservice of the commit with a running VM of its own, publishes every UI to its site,
-and records the project's SBOM. A commit whose generation, definitions or UI builds fail
-never reaches the running services.
+and records the project's SBOM. Generation, definition or UI build failures stop the job
+before it signals runtimes or publishes UIs; changes to the shared checkout and entity data
+are not rolled back.
 
 Three consequences shape every skill in this plugin:
 
@@ -197,8 +198,8 @@ Run it in Claude Code, Codex, and Grok Build.
    commit, confirm the entity definitions arrived published, and verify a `save()`
    round-trips without any manual step.
 6. Push a commit whose entity sources do not generate (or whose UI build fails) and verify
-   the deployment reports `FAILED` with a `failureMessage` while the previous commit keeps
-   running; push a microservice that crashes on startup and verify
+   the deployment reports `FAILED` with a `failureMessage`. Check individual runtimes and
+   entity state rather than assuming rollback; push a microservice that crashes on startup and verify
    `Microservice Deployment Service Find All For Project` reports it `FAILED`.
 7. Spot-check skill triggering: "define a kinotic entity for orders" should load
    entities-and-persistence, "publish a service" the services skill, "why isn't my

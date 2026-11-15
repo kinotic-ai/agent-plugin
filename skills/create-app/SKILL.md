@@ -216,8 +216,9 @@ project name, so a project named `main` produces a repo called `main`, and the s
 application in the same account then collides with it. The name carries the app's
 identity for the repo; the id carries the `main` convention.
 
-`organizationId` is required — the server rejects a project without it, and it does so
-after the repository has already been created, so get it right the first time. Creation
+`organizationId` must match the authenticated organization. The server validates it before
+provisioning a repository, so a missing or mismatched value creates no repository; correct
+it from the Application result and retry. Creation
 provisions the repository from the Kinotic template — on GitHub through the organization's
 GitHub App installation — and commits a rendered baseline; nothing is deployed until the
 first push. The call is idempotent: re-running it returns the existing project unchanged.

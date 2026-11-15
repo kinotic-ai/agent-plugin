@@ -94,10 +94,10 @@ Rules:
 
 Pushing to the default branch is what reaches the server: the deployment's build VM runs
 `kinotic sync` over the checkout, which regenerates, pushes the entity definitions and
-named queries, and applies pending migrations. A commit that does not compile fails
-there and never reaches the running services — so `bun run type-check` locally before
-pushing, and confirm the outcome with `Project Service Find Deployment` (the `deploying`
-skill).
+named queries, and applies pending migrations. Generation and UI build failures fail the
+sync step, but it does not type-check microservice code. Run `bun run type-check` locally
+before pushing, and confirm the outcome with `Project Service Find Deployment` (the
+`deploying` skill).
 
 Only the `Base*` classes are regenerated; the `<Entity>Repository` subclass is created
 once and never overwritten, so custom code (like named queries) belongs there.
@@ -286,18 +286,27 @@ authenticated user and every query is filtered to it, so ordinary repository cod
 tenant handling. The platform stores each row's tenant itself, so a `SHARED` entity needs no
 tenant field to be isolated.
 
-**`@TenantId` is optional.** Declare a `@TenantId` field (`tenantId: string = ''`) only when
-the app's logic needs to read a row's tenant id on the entity. On a user's save the field is
-filled with the user's tenant; never set it yourself.
+**`@TenantId` is optional.** Declare a `@TenantId` field (`tenantId: string = ''`) when
+the app's logic reads a row's tenant id or a backend acts across tenants. A user client
+leaves it blank so the server fills it from the user's tenant; an organization-scope
+backend supplies the tenant it intends to write.
 
-**A backend service cannot write a `SHARED` entity.** The tenant id comes off the
-authenticated participant, and only an APPLICATION-scope participant carries one — the
-deployed runtime connects at organization scope (see the `services` skill), so a
-`@Publish`ed service saving a `SHARED` entity fails with
-`Participant with a TenantId is required when MultiTenancyType is SHARED`. Reads and
-writes of a user's `SHARED` rows belong on a client connected as that user. An entity with a
-`@TenantId` field also gets a generated `<Entity>AdminRepository`; its tenant selection is
-limited to the logged-in tenant, which makes it useless today, so do not use it.
+**Backend services use explicit tenant selection.** A deployed microservice connects at
+organization scope and has no tenant of its own. For a `SHARED` entity, declare a
+`@TenantId` field so generation produces `<Entity>AdminRepository`. Use that repository
+with a tenant selection for reads (`['tenant-123']`, multiple tenant ids, or `['*']`),
+and use the ordinary repository's save/update methods with the tenant field populated
+on every entity. An organization-scope participant may act across tenants; a participant that belongs to a tenant may select
+only its own tenant, and a blank tenant field on its writes is filled automatically.
+
+```typescript
+const people = new PersonAdminRepository()
+const page = await people.findAll(['tenant-123'], Pageable.create(0, 25))
+```
+
+A read through the ordinary tenant-scoped repository from a backend without a tenant
+selection fails with `Participant with a TenantId is required when MultiTenancyType is SHARED`.
+User clients continue to use the ordinary generated repository for their own rows.
 
 Docs: <https://kinotic.ai/apps/persistence/multi-tenancy>.
 
