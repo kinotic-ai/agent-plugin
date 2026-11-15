@@ -49,8 +49,10 @@ descriptions start with `Application Service` / `Project Service` (e.g.
 `Application Service Create Application If Not Exist`). If they are present, the user
 is already connected — skip to Step 1.
 
-If the tools are missing, the user has not authenticated the Kinotic OS MCP server
-yet. The plugin's own server is named `kinotic-os`; a manually added server carries the
+If the host defers MCP tools, search its tool catalog for the full service/title words
+before deciding tools are missing. If no Kinotic tools can be discovered, check whether
+the server is configured, enabled and authenticated; an unavailable server or startup delay
+can also leave tools absent. The plugin's own server is named `kinotic-os`; a manually added server carries the
 name it was given (`kinotic-os-test` in the README's example) — the steps below say
 `kinotic-os`; substitute that name. Ask whether they already have a Kinotic OS account, then walk them through the
 matching path — the whole flow happens in their browser, so narrate what they will see:

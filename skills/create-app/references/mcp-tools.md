@@ -283,7 +283,9 @@ Errors:
   project is not in `INITIALIZATION_FAILED`; never call this tool speculatively.
 - `"Project repoId must be set to reinitialize"` (likewise `repoFullName` /
   `repoDefaultBranch`; a `GITEA` host checks only the last two) — provisioning never got
-  far enough for a retry; re-run project creation instead.
+  far enough for a retry. Report the incomplete repository binding to the user for
+  operator repair. Re-running creation returns the existing project unchanged; never
+  delete the project or guess replacement repository fields to work around it.
 - `"GitHub is not linked for this organization. …"` — the installation disappeared
   between create and retry; back to GitHub linking.
 

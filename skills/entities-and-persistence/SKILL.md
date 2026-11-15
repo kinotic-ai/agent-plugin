@@ -308,6 +308,13 @@ A read through the ordinary tenant-scoped repository from a backend without a te
 selection fails with `Participant with a TenantId is required when MultiTenancyType is SHARED`.
 User clients continue to use the ordinary generated repository for their own rows.
 
+A backend's repository calls authenticate as its organization machine, not as the user
+who invoked the service. For a user-facing `@Context` method, derive the tenant from the
+caller's `ServiceContext.participant` and check access before reading or writing data.
+Cross-tenant administrative operations must authorize the caller before accepting tenant
+ids or `['*']`; a tenant id supplied as a method argument is not authorization. See the
+services skill for `@Context`.
+
 Docs: <https://kinotic.ai/apps/persistence/multi-tenancy>.
 
 ## Further reading
