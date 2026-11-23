@@ -9,6 +9,8 @@
   "homepage": "https://kinotic.ai",
   "repository": "https://github.com/kinotic-ai/agent-plugin",
   "license": "Apache-2.0",
+  "privacyPolicyUrl": "https://kinotic.ai/privacy",
+  "icon": "./.claude-plugin/icon.png",
   "keywords": [
     "kinotic",
     "typescript",
