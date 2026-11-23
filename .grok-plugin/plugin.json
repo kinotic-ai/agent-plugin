@@ -20,7 +20,7 @@
   "mcpServers": {
     "kinotic-os": {
       "type": "http",
-      "url": "https://dev-api.kinotic.ai/mcp",
+      "url": "https://api.kinotic.ai/mcp",
       "oauth": {
         "clientId": "https://kinotic.ai/oauth/grok-build-client.json"
       }

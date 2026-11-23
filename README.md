@@ -54,7 +54,7 @@ For local development, install from a checkout path instead
 **ChatGPT, Grok, and Grok Bot**
 
 The chat apps connect to the Kinotic OS MCP server directly and get its tools without the
-plugin's skills. Add `https://dev-api.kinotic.ai/mcp` as a custom MCP server:
+plugin's skills. Add `https://api.kinotic.ai/mcp` as a custom MCP server:
 
 - **ChatGPT** — [chatgpt.com/plugins](https://chatgpt.com/plugins) → **+** → **Add custom
   MCP server**.
@@ -65,8 +65,8 @@ plugin's skills. Add `https://dev-api.kinotic.ai/mcp` as a custom MCP server:
 
 ## Configuration
 
-The plugin connects to the Kinotic OS dev server (`https://dev-api.kinotic.ai/mcp`; its
-portal is `https://dev-portal.kinotic.ai`). The URL is a literal on purpose: the Claude
+The plugin connects to Kinotic Cloud (`https://api.kinotic.ai/mcp`; its
+portal is `https://portal.kinotic.ai`). The URL is a literal on purpose: the Claude
 desktop app interpolates neither `${user_config.*}` plugin settings nor `${VAR:-default}`
 env syntax — both reach its connector dialog as the raw placeholder and fail validation
 (and `${user_config.*}` also has open Claude Code bugs: anthropics/claude-code#51573,
