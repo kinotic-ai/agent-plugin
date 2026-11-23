@@ -64,8 +64,8 @@ matching path — the whole flow happens in their browser, so narrate what they 
    - **Grok Build** — run `/mcps`, select `kinotic-os`, and press `i` to authenticate.
 
    A browser opens on the Kinotic OS **portal** login page — the one with a "New to Kinotic?
-   **Create Organization**" link. The plugin targets the Kinotic OS dev server
-   (`https://dev-api.kinotic.ai/mcp`, portal `https://dev-portal.kinotic.ai`); for a
+   **Create Organization**" link. The plugin targets the Kinotic OS server
+   (`https://api.kinotic.ai/mcp`, portal `https://portal.kinotic.ai`); for a
    different Kinotic OS see "Other servers" below.
 2. **Existing account** — sign in, then on the consent screen ("Authorize …", with a
    "Verified as <host>" line) click **Approve**. **Deny** is a real decision that
