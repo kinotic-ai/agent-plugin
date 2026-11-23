@@ -30,6 +30,15 @@ a root `.mcp.json` in addition to its manifest.
 /plugin install kinotic@kinotic
 ```
 
+**Claude desktop app**
+
+Install the plugin as for Claude Code, then work in a local session in the Code tab. The
+session's folder need not be a git repository, so a new user starts in any empty folder
+and runs `/kinotic:new-app`, which clones the provisioned project repository into a
+subfolder of it; later sessions open on that clone. Leave worktree isolation off for that
+first session, since it requires a git folder. Plugins do not load in the Chat tab: adding
+the MCP server there as a custom connector gives its tools without the skills.
+
 **Codex** (CLI, IDE extension, and the ChatGPT desktop app)
 
 ```
