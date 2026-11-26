@@ -154,8 +154,10 @@ the same three files from `.config/templates/microservice/` of the template repo
 `kinotic-ai/kinotic-tpl-isomorphic-ts`, replacing `{{ projectSlug }}` in `package.json.liquid`
 with the slug in the project's root `package.json` `name`, and saving it as `package.json`.
 
-Register it in `bunup.config.ts`: add a comma after the closing `}` of the `domain` entry, then
-the new entry:
+Register it in `bunup.config.ts`, in the array passed to `defineWorkspace`, where every entry
+but the last ends with a comma. Insert the new entry after the `domain` entry, adding a comma
+after `domain`'s closing `}` if it has none, and end the new entry with a comma when another
+entry follows it:
 
 ```ts
 {
