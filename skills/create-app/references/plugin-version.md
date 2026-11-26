@@ -1,7 +1,8 @@
 # Plugin version: update check and project stamp
 
 Every Kinotic skill and command runs this check once per session, before its first other
-step, and stamps a project's `.config/` with the plugin version whenever it changes that
+step, and reads a project's stamp (step 3 and step 5) again whenever it starts work in another
+Kinotic project in the same session. It stamps a project's `.config/` with the plugin version whenever it changes that
 project's files.
 
 ## Check for a newer plugin
@@ -26,14 +27,17 @@ project's files.
      `claude` CLI. Otherwise ask the user to update the Kinotic plugin from the app's plugin
      settings and start a new conversation.
    - **Codex:** `codex plugin marketplace upgrade kinotic`, then
-     `codex plugin add kinotic@kinotic`. The new version loads in a new session.
-   - **Grok Build:** `grok plugin update kinotic`. The new version loads in a new session.
+     `codex plugin add kinotic@kinotic`. The new version loads in a new session; ask the user
+     to start one and continue the task there.
+   - **Grok Build:** `grok plugin update kinotic`. The new version loads in a new session;
+     ask the user to start one and continue the task there.
 
    If a command fails or the shell cannot run it, give the user the commands to run
    instead. If they decline the update, carry on with the installed version and do not ask
    again in this session.
-5. **When the project stamp is newer than the installed version** and step 4 offered no
-   update (`main` is not newer, or it could not be fetched), tell the user that a newer
+5. **When the project stamp is newer than the version you will work with** (the installed
+   one, unless an update from step 4 is now loaded), and the update step 4 offered, if any,
+   would not have brought the stamp's version or was declined, tell the user that a newer
    plugin version (the stamp's) last changed this project than the one installed, and ask
    whether to go on with the installed version.
 6. **Otherwise**, including when the installed version cannot be read, carry on without
