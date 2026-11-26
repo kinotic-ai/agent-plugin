@@ -110,8 +110,8 @@ characters is refused with a message ending `shorten the application name`.
 It also fails when the application would be new and the organization already has as many
 applications as the server allows. Kinotic Cloud's beta allows two; the message reads
 `Your organization already has 2 applications, the most it can have. …` and goes on to say
-`You're building on the free Kinotic beta cloud` and that paid plans will let the
-organization scale beyond these limits when Kinotic Cloud launches. Match on `Kinotic beta cloud`: any tool or deployment failure carrying
+`You're on the free Kinotic beta cloud. Paid plans at launch will let you scale beyond these
+limits.` Match on `Kinotic beta cloud`: any tool or deployment failure carrying
 it is a beta limit, which the create-app skill's **Beta limits** section says how to explain.
 Calling it again with an existing application's name still returns that application.
 
