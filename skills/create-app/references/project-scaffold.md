@@ -13,6 +13,7 @@ report the difference to the user, and do not "fix" the clone to match this docu
 ├── package.json              # Bun workspace root
 ├── tsconfig.json             # `bun run generate` reads compilerOptions from here
 ├── tsconfig.base.json
+├── bunup.config.ts           # bunup workspace definition (packages are registered here)
 ├── .config/
 │   ├── kinotic.config.ts     # Kinotic project configuration (see below)
 │   ├── templates/microservice/  # starter microservice, copied into packages/microservices when needed
@@ -41,6 +42,8 @@ report the difference to the user, and do not "fix" the clone to match this docu
     "name": "<project slug>",
     "private": true,
     "scripts": {
+        "build": "bunup",
+        "dev": "bunup --watch",
         "generate": "kinotic generate",
         "type-check": "bun run --filter '*' type-check"
     },
@@ -48,6 +51,7 @@ report the difference to the user, and do not "fix" the clone to match this docu
         "@kinotic-ai/kinotic-cli": "<pinned version>",
         "@kinotic-ai/management-api": "<pinned version>",
         "@types/bun": "<pinned version>",
+        "bunup": "<pinned version>",
         "typescript": "<pinned version>"
     },
     "catalog": {
@@ -150,6 +154,22 @@ the same three files from `.config/templates/microservice/` of the template repo
 `kinotic-ai/kinotic-tpl-isomorphic-ts`, replacing `{{ projectSlug }}` in `package.json.liquid`
 with the slug in the project's root `package.json` `name`, and saving it as `package.json`.
 
+Register it in `bunup.config.ts`, in the array passed to `defineWorkspace`, where every entry
+but the last ends with a comma. Insert the new entry after the `domain` entry, adding a comma
+after `domain`'s closing `}` if it has none, and end the new entry with a comma when another
+entry follows it:
+
+```ts
+{
+    name: '<name>',
+    root: 'packages/microservices/<name>',
+    config: {
+        entry: 'src/main.ts',
+        dts: false
+    }
+}
+```
+
 Then run `bun install` so the workspace links it, and `bun run type-check`. The next push
 starts its VM; see the `deploying` skill.
 
@@ -165,14 +185,17 @@ export * from './repositories/PersonRepository.js'
 ```
 
 Its `package.json` declares `"sideEffects": false`, so a UI bundle that uses entities only
-as types drops the decorated entity classes. Its `exports` map points at `index.ts`, so the
-package resolves to its TypeScript source and type-checks and runs without a build step.
+as types drops the decorated entity classes. Its `exports` map lists the source conditions (`development`, `bun`) ahead
+of the `dist` fallbacks, so inside the repository the package resolves to its TypeScript
+source and type-checks and runs without a prior build. Consumers installing it from a
+registry get the built `dist/` output instead. `bunup.config.ts` keeps that map in sync
+and must be edited by hand if a new workspace package is added.
 
 ## Adding a UI package
 
 The template ships `packages/ui/` empty, so a UI is created from scratch. Each one is its
 own workspace package under `packages/ui/` — the root workspace globs cover exactly that
-depth. Run `bun install` so the workspace links it.
+depth. Register it in `bunup.config.ts` and run `bun install` so the workspace links it.
 
 Two things make it a publishable UI rather than a library:
 
@@ -203,12 +226,9 @@ the ambient typing for those variables, and the browser sign-in module are in th
 ```
 
 Production single-file executables are built from a package directory with
-`bun build --compile src/main.ts --outfile bin/<name>`.
-
-The project has no build step of its own: a deployment runs each microservice from its
-TypeScript source and builds each UI with that UI's own `build` script. A project created
-from an older template may still have a `bunup.config.ts` and `build`/`dev` scripts that run
-bunup; the deployment never reads them, so a new package needs no entry there.
+`bun build --compile src/main.ts --outfile bin/<name>` — use `bun build` directly, not
+bunup's `compile` option, which drops an import binding when bundling `@kinotic-ai/core`
+and produces a binary that crashes on startup.
 
 ## Verification checklist
 

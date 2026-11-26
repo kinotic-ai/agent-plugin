@@ -92,7 +92,7 @@ For Project` for each); if it does, add the new services to that one instead.
 
 To add a microservice, copy the project's starter, `.config/templates/microservice/`, to
 `packages/microservices/<name>/`, set its `package.json` `name` to `@<project slug>/<name>`,
-and run `bun install`; the steps are in **Adding a
+register it in `bunup.config.ts`, and run `bun install`; the steps are in **Adding a
 microservice** in the `create-app` skill's `references/project-scaffold.md`, and the project's
 own `README.md` shows the same. Never write the package from scratch. Then instantiate services in `src/main.ts`, or in modules it
 imports. Every package under `packages/microservices/` is a microservice of its own, run in
@@ -104,8 +104,8 @@ of its projects. Put every service of an application in that one microservice ra
 package per service. A push whose commit would give the application a second microservice
 fails its deployment with a `failureMessage` about the beta cloud; explain it to the user as
 the `create-app` skill's **Beta limits** section says, move the services into the
-existing microservice, and delete the extra package under `packages/microservices/` before
-pushing again.
+existing microservice, and delete the extra package under `packages/microservices/` and its
+`bunup.config.ts` entry before pushing again.
 
 `Kinotic.connect(options?)` takes an optional plain `ConnectOptions` object literal —
 every field is optional. Unset fields resolve in order: explicit value →
