@@ -20,20 +20,21 @@ project's files.
    plugin already worked on this project.
 4. **When a newer version exists**, ask the user, before doing anything else, whether they
    want to update the plugin, naming the installed and the newer version. If they say yes,
-   give them their host's steps:
+   run their host's update commands yourself:
    - **Claude Code:** `claude plugin marketplace update kinotic`, then
-     `claude plugin update kinotic@kinotic`, then `/reload-plugins` in the running session
-     (or start a new one).
+     `claude plugin update kinotic@kinotic`. The new version loads after the user runs
+     `/reload-plugins` or starts a new session; ask them to do that, then continue the task.
    - **Codex:** `codex plugin marketplace upgrade kinotic`, then
-     `codex plugin add kinotic@kinotic`, then start a new session.
-   - **Grok Build:** `grok plugin update kinotic`, then start a new session.
+     `codex plugin add kinotic@kinotic`. The new version loads in a new session.
+   - **Grok Build:** `grok plugin update kinotic`. The new version loads in a new session.
 
-   Then wait for the user to update and come back, or to say to go on with the installed
-   version. If they decline, carry on and do not ask again in this session.
+   If a command fails or the shell cannot run it, give the user the commands to run
+   instead. If they decline the update, carry on with the installed version and do not ask
+   again in this session.
 5. **When no newer version exists**, or either version cannot be read (no network, no
    manifest), carry on without mentioning the check.
 
-Never update the plugin yourself, and never edit the installed plugin's files.
+Never edit the installed plugin's files; update it only through the host's commands above.
 
 ## Stamp the project
 
