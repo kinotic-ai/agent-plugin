@@ -156,9 +156,10 @@ A UI that imports the domain package (`@<project slug>/domain`, for its reposito
 types) needs two things in its `vite.config.ts`:
 
 - **An alias to the domain package's source.** The deployment runs `bun run build` in the UI's
-  own directory and never builds the domain package. A production Vite build resolves the
-  package to its `dist/index.js`, which does not exist, and fails with `failed to resolve
-  import "@<project slug>/domain"`. Aliasing the package to its `index.ts` bundles the source.
+  own directory and never builds the domain package. In a project from an older template the
+  package's `exports` send a production Vite build to a `dist/index.js` that does not exist, and
+  the build fails with `failed to resolve import "@<project slug>/domain"`. Aliasing the package
+  to its `index.ts` bundles the source in every project.
 - **A plugin that compiles the decorators**, when the UI uses an entity class as a value. The
   persistence decorators (`@Entity`, `@Id`, `@TenantId`, `@Query`, …) are standard TC39
   decorators, and Vite 8 copies them into the bundle unchanged. No browser parses that
