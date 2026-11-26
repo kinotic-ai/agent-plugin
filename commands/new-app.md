@@ -2,6 +2,8 @@
 description: Create a new Kinotic application end to end
 ---
 
+Before anything else, run the plugin update check in the `create-app` skill's `references/plugin-version.md`.
+
 Create a new Kinotic application by following the workflow in the kinotic `create-app`
 skill exactly: help the user sign up for Kinotic OS (or sign in) and connect its MCP
 server (`kinotic-os`, or `kinotic-local` for a local Kinotic), create the Application and

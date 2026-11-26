@@ -11,6 +11,8 @@ description: >
 
 # Kinotic Services
 
+**Before anything else**, once per session, check for a newer version of this plugin and offer the user the update, as `references/plugin-version.md` in the `create-app` skill says. Whenever you change a Kinotic project's files, stamp the plugin version into its `.config/agent-plugin.json` as that file says.
+
 Every remote call in a Kinotic app — service to service, frontend to backend — goes
 over one STOMP-over-WebSocket connection through the RPC gateway, addressed by zone +
 qualified name. There is no REST layer for application services.

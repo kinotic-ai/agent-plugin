@@ -13,6 +13,8 @@ description: >
 
 # Running and Deploying a Kinotic Project
 
+**Before anything else**, once per session, check for a newer version of this plugin and offer the user the update, as `references/plugin-version.md` in the `create-app` skill says. Whenever you change a Kinotic project's files, stamp the plugin version into its `.config/agent-plugin.json` as that file says.
+
 Pushing to the project repository's **default branch** is the deployment. There is no CI
 to configure, no pipeline file, and nothing to run from a developer machine.
 Docs: <https://kinotic.ai/apps/deployment/push-to-deploy>.

@@ -17,6 +17,7 @@ report the difference to the user, and do not "fix" the clone to match this docu
 ├── .config/
 │   ├── kinotic.config.ts     # Kinotic project configuration (see below)
 │   ├── templates/microservice/  # starter microservice, copied into packages/microservices when needed
+│   ├── agent-plugin.json     # plugin version that last changed the project (written by the agent; see plugin-version.md)
 │   └── c3/                   # generated schemas (written by `bun run generate`; committed)
 ├── .kinotic/                 # local incremental-generation cache (gitignored — never commit)
 ├── migrations/               # V<N>__<description>.sql files (absent until first used)

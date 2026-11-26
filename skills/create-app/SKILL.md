@@ -11,6 +11,8 @@ description: >
 
 # Creating a Kinotic Application
 
+**Before anything else**, once per session, check for a newer version of this plugin and offer the user the update, as `references/plugin-version.md` says. Whenever you change a Kinotic project's files, stamp the plugin version into its `.config/agent-plugin.json` as that file says.
+
 Follow these steps in order. Exact MCP tool contracts (argument and result JSON shapes,
 error strings) are in `references/mcp-tools.md`. The expected repository layout is in
 `references/project-scaffold.md`.
