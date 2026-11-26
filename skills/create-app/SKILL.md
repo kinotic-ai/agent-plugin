@@ -134,6 +134,16 @@ either looks like "the server never appeared" after OAuth.
 
 ## Step 1 — Create the Application
 
+0. **Read the plan first.** Call `Application Service Find Beta Limits` (no arguments). A
+   `null` result means the server has no limits; carry on. Otherwise the organization is on
+   Kinotic's free beta cloud: tell the user so before planning anything, in your own words
+   from its `summary` (the beta is free, with these limits, and the limits are removed when
+   Kinotic Cloud is released for production), and say how much of it they already use
+   (`applicationCount`, and `microservicesByApplication` for the application you will build
+   in). Plan within it from the start: every service of an application goes in its one
+   microservice. When the organization already has all the applications it may have, offer
+   to build in one of them (`Application Service Find All` lists them) instead of creating
+   another; deleting one is the user's decision alone.
 1. Ask the user for an application name and one-line description if not already known.
    Any human-readable name works — the server slugifies it into the application id. It
    is rejected when blank, all punctuation, slugifying to the platform-reserved id
@@ -195,10 +205,15 @@ either looks like "the server never appeared" after OAuth.
 
 ### Beta limits
 
-When a tool call or a deployment fails with a message saying the user is on the Kinotic beta
-cloud, a beta limit was reached: while Kinotic Cloud is in beta, an organization can have at
-most two applications, and each application can deploy at most one microservice across all
-of its projects. Tell the user plainly, in your own words, that they are on Kinotic's beta
+Kinotic Cloud is free while it is in beta, with limits: an organization can have at most two
+applications, and each application can deploy at most one microservice across all of its
+projects. `Application Service Find Beta Limits` returns the current limits and usage (Step 1
+reads it before anything is created); the portal shows the same plan behind its **Free beta**
+badge. These are intentional capacity limits of a free plan, not errors: describe them that
+way.
+
+When a tool call fails with a message saying the user is on the Kinotic beta cloud, or a
+deployment's `limitReached` is set, a beta limit was reached. Tell the user plainly, in your own words, that they are on Kinotic's beta
 cloud, which limits how many applications and microservices an organization can create, and
 that the limits will be removed once Kinotic is out of beta. Then offer the way forward the
 message names (build in an existing application, or put the new services in the

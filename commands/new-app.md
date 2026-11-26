@@ -12,8 +12,10 @@ clone the repository with a Kinotic token, verify the scaffold, define a first e
 push — then confirm with `Project Service Find Deployment` that the deployment's
 `state.observed` reached `RUNNING` at the pushed commit. The scaffold has no microservice;
 when the project has one, check it with `Microservice Deployment Service Find All For
-Project` and report any failureMessage. If a step fails with a message about the Kinotic beta
-cloud, explain the beta limits as the skill's **Beta limits** section says.
+Project` and report any failureMessage. Before creating anything, read `Application Service
+Find Beta Limits` and tell the user about the free beta plan and its limits, as the skill's
+Step 1 says. If a step fails with a message about the Kinotic beta cloud, or a deployment's
+`limitReached` is set, explain the beta limits as the skill's **Beta limits** section says.
 A running VM is not proof the service answers: verify an application operation through
 its public interface when one exists. Follow the deploying skill's superseded-push handling.
 

@@ -155,6 +155,25 @@ before continuing.
 authenticated user — pass both into project creation. `primaryUiId` and `primaryUiUrl` name
 the first UI the application published, once it has one.
 
+### `Application Service Find Beta Limits`
+
+Read-only, no arguments. Returns the free beta cloud plan the organization is on, or `null`
+when the server has no limits:
+
+```json
+{
+  "summary": "Kinotic Cloud is in beta and free to use, with limits: ...",
+  "maxApplicationsPerOrganization": 2,
+  "maxMicroservicesPerApplication": 1,
+  "applicationCount": 1,
+  "microservicesByApplication": { "inventory-app": 1 }
+}
+```
+
+A limit that is `null` has no cap. An application that runs no microservice is absent from
+`microservicesByApplication`. Read it before planning an application and tell the user about
+the plan (`create-app` skill, Step 1).
+
 ### `Application Service Get Login Methods`
 
 Read-only. Returns the sign-in methods the application's login offers, in the order to
