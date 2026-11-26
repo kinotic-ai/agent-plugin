@@ -137,7 +137,8 @@ either looks like "the server never appeared" after OAuth.
 0. **On Kinotic Cloud, say up front that it is the free beta.** When the user builds on
    Kinotic Cloud (the `kinotic-os` MCP server), tell them before planning anything that
    Kinotic Cloud is free while it is in beta, with the limits under **Beta limits** below,
-   and that the limits are removed when it is released for production. Plan within them
+   and that when Kinotic Cloud launches, paid plans will let them scale well beyond them.
+   Plan within them
    from the start: every service of an application goes in its one microservice. When the
    organization already has two applications (`Application Service Count`), offer to build
    in one of them (`Application Service Find All` lists them) instead of creating another;
@@ -210,8 +211,8 @@ that way.
 
 When a tool call fails, or a deployment's `failureMessage` says why it failed, with a message
 saying the user is on the Kinotic beta cloud, a beta limit was reached. Tell the user plainly, in your own words, that they are on Kinotic's beta
-cloud, which limits how many applications and microservices an organization can create, and
-that the limits will be removed once Kinotic is out of beta. Then offer the way forward the
+cloud, which includes a set number of applications and microservices, and that paid plans
+will let them scale well beyond these limits when Kinotic Cloud launches. Then offer the way forward the
 message names (build in an existing application, or put the new services in the
 application's existing microservice). Never try to get around a limit, for example by
 creating another organization or splitting a microservice across projects.
