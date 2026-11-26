@@ -13,7 +13,7 @@ report the difference to the user, and do not "fix" the clone to match this docu
 ├── package.json              # Bun workspace root
 ├── tsconfig.json             # `bun run generate` reads compilerOptions from here
 ├── tsconfig.base.json
-├── bunup.config.ts           # bunup workspace definition (packages are registered here)
+├── bunup.config.ts           # bunup workspace: the domain package plus every microservice it finds
 ├── .config/
 │   ├── kinotic.config.ts     # Kinotic project configuration (see below)
 │   ├── templates/microservice/  # starter microservice, copied into packages/microservices when needed
@@ -154,10 +154,10 @@ the same three files from `.config/templates/microservice/` of the template repo
 `kinotic-ai/kinotic-tpl-isomorphic-ts`, replacing `{{ projectSlug }}` in `package.json.liquid`
 with the slug in the project's root `package.json` `name`, and saving it as `package.json`.
 
-Register it in `bunup.config.ts`, in the array passed to `defineWorkspace`, where every entry
-but the last ends with a comma. Insert the new entry after the `domain` entry, adding a comma
-after `domain`'s closing `}` if it has none, and end the new entry with a comma when another
-entry follows it:
+`bunup.config.ts` finds every package directly under `packages/microservices` on its own, so a
+new microservice needs no entry there. A project created before it did lists its packages by
+hand: there, add an entry for the new microservice to the array passed to `defineWorkspace`,
+after the `domain` entry, where every entry but the last ends with a comma:
 
 ```ts
 {
@@ -195,7 +195,8 @@ and must be edited by hand if a new workspace package is added.
 
 The template ships `packages/ui/` empty, so a UI is created from scratch. Each one is its
 own workspace package under `packages/ui/` — the root workspace globs cover exactly that
-depth. Register it in `bunup.config.ts` and run `bun install` so the workspace links it.
+depth. Run `bun install` so the workspace links it; a UI builds with its own `build` script,
+not through `bunup.config.ts`.
 
 Two things make it a publishable UI rather than a library:
 
