@@ -101,9 +101,8 @@ identity (`deploying` skill).
 
 **On Kinotic Cloud's beta, an application can deploy one microservice**, counted across all
 of its projects. Put every service of an application in that one microservice rather than a
-package per service. `Application Service Find Beta Limits` says how many microservices the
-application already runs. A push whose commit would give the application a second microservice
-is not deployed, and the deployment's `limitReached` says why; explain it to the user as
+package per service. A push whose commit would give the application a second microservice
+is not deployed: its deployment fails with a `failureMessage` about the beta cloud. Explain it to the user as
 the `create-app` skill's **Beta limits** section says, move the services into the
 existing microservice, and delete the extra package under `packages/microservices/` (and its
 `bunup.config.ts` entry, in a project whose `bunup.config.ts` lists packages by hand) before

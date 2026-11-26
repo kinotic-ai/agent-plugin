@@ -62,9 +62,8 @@ adding one is adding a package — there is no registry to update:
   Each gets its own workload, so a second microservice really does run. The scaffold ships
   none; the `services` skill says when and how to add one. On Kinotic Cloud's beta an
   application can deploy only one microservice across all of its projects: a commit that
-  would give it a second is not deployed: the deployment's `limitReached` names the limit
-  (and it fails with the same `failureMessage`) before anything of the commit is deployed.
-  Explain it as the `create-app` skill's **Beta limits** section says: a limit of the free
+  would give it a second is not deployed: the deployment fails with a `failureMessage`
+  about the beta cloud before anything of the commit is deployed. Explain it as the `create-app` skill's **Beta limits** section says: a limit of the free
   beta plan, not a broken build.
 - A UI is a directory directly under `packages/ui` whose `package.json` declares a `build`
   script. It must honor the UI build contract (`frontend` skill) or it publishes assets
@@ -154,7 +153,6 @@ deployed. The record keeps what the deployment should be beside what it is, unde
   "syncMachineIdentityId": "…",
   "lastJobRunId": "…",
   "failureMessage": null,
-  "limitReached": null,
   "state": {
     "desired": { "phase": "RUNNING", "commitSha": "9f2c1ab…" },
     "observed": { "phase": "RUNNING", "commitSha": "9f2c1ab…" },
@@ -171,7 +169,7 @@ with the pushed commit. `state.observed` is what the deployment is:
 |---|---|---|
 | `DEPLOYING` | A job is running for the latest qualifying push; `observed.commitSha` retains the previous successful deployment | Wait and re-check; the job page shows live steps |
 | `RUNNING` | Every step passed; `observed.commitSha` is live | Compare `observed.commitSha` to the pushed commit |
-| `FAILED` | The last deployment failed | Read `failureMessage` and the individual microservice/UI records; the project's retained `observed.commitSha` does not establish what is serving after a partial deployment. A set `limitReached` (or a `failureMessage` about the Kinotic beta cloud) is a free beta limit, not a broken build: explain it as the `create-app` skill's **Beta limits** section says |
+| `FAILED` | The last deployment failed | Read `failureMessage` and the individual microservice/UI records; the project's retained `observed.commitSha` does not establish what is serving after a partial deployment. A `failureMessage` about the Kinotic beta cloud is a free beta limit, not a broken build: explain it as the `create-app` skill's **Beta limits** section says |
 
 The deployment completed successfully when `state.observed.phase` is `RUNNING` and
 `state.observed.commitSha` is the pushed commit. Poll rather than assume: after pushing,
