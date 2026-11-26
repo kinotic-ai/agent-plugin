@@ -88,11 +88,11 @@ project's `packages/microservices/` or in another of the application's projects
 (`Project Service Find All For Application`, then `Microservice Deployment Service Find All
 For Project` for each); if it does, add the new services to that one instead.
 
-To add a microservice, create its package under `packages/microservices/<name>/` with a
-`package.json`, a `tsconfig.json` and the entry point above at `src/main.ts`, register it
-in `bunup.config.ts`, and run `bun install`; the files are in **Adding a microservice** in
-the `create-app` skill's `references/project-scaffold.md`, and the project's own
-`README.md` shows the same. Then instantiate services in `src/main.ts`, or in modules it
+To add a microservice, copy the project's starter, `.config/templates/microservice/`, to
+`packages/microservices/<name>/`, set its `package.json` `name` to `@<project slug>/<name>`,
+register it in `bunup.config.ts`, and run `bun install`; the steps are in **Adding a
+microservice** in the `create-app` skill's `references/project-scaffold.md`, and the project's
+own `README.md` shows the same. Never write the package from scratch. Then instantiate services in `src/main.ts`, or in modules it
 imports. Every package under `packages/microservices/` is a microservice of its own, run in
 its own VM from its `package.json` `main` (default `src/main.ts`) with its own machine
 identity (`deploying` skill).

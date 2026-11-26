@@ -16,6 +16,7 @@ report the difference to the user, and do not "fix" the clone to match this docu
 ├── bunup.config.ts           # bunup workspace definition (packages are registered here)
 ├── .config/
 │   ├── kinotic.config.ts     # Kinotic project configuration (see below)
+│   ├── templates/microservice/  # starter microservice, copied into packages/microservices when needed
 │   └── c3/                   # generated schemas (written by `bun run generate`; committed)
 ├── .kinotic/                 # local incremental-generation cache (gitignored — never commit)
 ├── migrations/               # V<N>__<description>.sql files (absent until first used)
@@ -131,53 +132,26 @@ this project or another of its projects; if it has one, add the new services to 
 instead. On Kinotic Cloud's beta an application can deploy only one microservice across
 all of its projects, and a push that would give it a second fails its deployment.
 
-A microservice named `<name>` is three files under `packages/microservices/<name>/` and an
-entry in `bunup.config.ts`. The project's own `README.md` shows the same files; trust it
-over this document if they differ.
+The project carries a starter microservice at `.config/templates/microservice/`: a complete
+package (`package.json`, `tsconfig.json`, and `src/main.ts`, **the file the platform runs**)
+rendered for this project. It sits outside `packages/microservices/`, so it is never deployed
+itself. The project's own `README.md` describes the same steps; trust it over this document if
+they differ. To add a microservice named `<name>`:
 
-`package.json`, whose unscoped `name` is the microservice's identity (lowercase letters,
-digits and interior dashes):
-
-```json
-{
-    "name": "@<project slug>/<name>",
-    "version": "0.1.0",
-    "type": "module",
-    "scripts": { "type-check": "tsc --noEmit" },
-    "dependencies": {
-        "@<project slug>/domain": "workspace:*",
-        "@kinotic-ai/core": "catalog:",
-        "@kinotic-ai/management-api": "catalog:"
-    }
-}
+```bash
+cp -r .config/templates/microservice packages/microservices/<name>
 ```
 
-`tsconfig.json`:
+In `packages/microservices/<name>/package.json`, change `name` from
+`@<project slug>/microservice` to `@<project slug>/<name>`; its unscoped part is the
+microservice's identity (lowercase letters, digits and interior dashes). Instantiate the
+`@Publish` services in `src/main.ts` where its comment marks the spot. Leave
+`.config/templates/microservice/` itself unchanged.
 
-```json
-{
-    "extends": "../../../tsconfig.base.json",
-    "files": [],
-    "include": ["**/*"],
-    "exclude": ["node_modules", "dist", "bin"]
-}
-```
-
-`src/main.ts`, **the file the platform runs** (the `package.json` `main`, or `src/main.ts`
-when it declares none). Deployed, the runtime workload preloads the OpenTelemetry SDK, so
-the entry point sets up no telemetry of its own:
-
-```typescript
-import { Kinotic } from '@kinotic-ai/core'
-import { appZone } from '@kinotic-ai/management-api'
-import config from '../../../../.config/kinotic.config'
-
-// The zone prefix must be set before any @Publish class is instantiated.
-Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
-
-// Instantiate @Publish services here. Before or after connect() both work.
-await Kinotic.connect()
-```
+A project created before the template carried the starter has no `.config/templates/`. Take
+the same three files from `.config/templates/microservice/` of the template repository,
+`kinotic-ai/kinotic-tpl-isomorphic-ts`, replacing `{{ projectSlug }}` in `package.json.liquid`
+with the slug in the project's root `package.json` `name`, and saving it as `package.json`.
 
 Register it in `bunup.config.ts`: add a comma after the closing `}` of the `domain` entry, then
 the new entry:
