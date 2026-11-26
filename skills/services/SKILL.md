@@ -101,8 +101,9 @@ identity (`deploying` skill).
 of its projects. Put every service of an application in that one microservice rather than a
 package per service. A push whose commit would give the application a second microservice
 fails its deployment with a `failureMessage` about the beta cloud; explain it to the user as
-the `create-app` skill's **Beta limits** section says, and move the services into the
-existing microservice.
+the `create-app` skill's **Beta limits** section says, move the services into the
+existing microservice, and delete the extra package under `packages/microservices/` and its
+`bunup.config.ts` entry before pushing again.
 
 `Kinotic.connect(options?)` takes an optional plain `ConnectOptions` object literal —
 every field is optional. Unset fields resolve in order: explicit value →
