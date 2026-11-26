@@ -57,7 +57,12 @@ adding one is adding a package — there is no registry to update:
 
 - A microservice is a directory directly under `packages/microservices` holding a
   `package.json`. Its entry is that file's `main`, or `src/main.ts` when it declares none.
-  Each gets its own workload, so a second microservice really does run.
+  Each gets its own workload, so a second microservice really does run. The scaffold ships
+  none; the `services` skill says when and how to add one. On Kinotic Cloud's beta an
+  application can deploy only one microservice across all of its projects: a commit that
+  would give it a second fails the deployment, before anything of the commit is deployed,
+  with a `failureMessage` about the beta cloud (explain it as the `create-app` skill's
+  **Beta limits** section says).
 - A UI is a directory directly under `packages/ui` whose `package.json` declares a `build`
   script. It must honor the UI build contract (`frontend` skill) or it publishes assets
   nothing can load.
@@ -162,7 +167,7 @@ with the pushed commit. `state.observed` is what the deployment is:
 |---|---|---|
 | `DEPLOYING` | A job is running for the latest qualifying push; `observed.commitSha` retains the previous successful deployment | Wait and re-check; the job page shows live steps |
 | `RUNNING` | Every step passed; `observed.commitSha` is live | Compare `observed.commitSha` to the pushed commit |
-| `FAILED` | The last deployment failed | Read `failureMessage` and the individual microservice/UI records; the project's retained `observed.commitSha` does not establish what is serving after a partial deployment |
+| `FAILED` | The last deployment failed | Read `failureMessage` and the individual microservice/UI records; the project's retained `observed.commitSha` does not establish what is serving after a partial deployment. A `failureMessage` about the Kinotic beta cloud is a beta limit: explain it as the `create-app` skill's **Beta limits** section says |
 
 The deployment completed successfully when `state.observed.phase` is `RUNNING` and
 `state.observed.commitSha` is the pushed commit. Poll rather than assume: after pushing,

@@ -184,6 +184,24 @@ either looks like "the server never appeared" after OAuth.
 4. From the result, record `id` (the server-minted slug of the name, e.g.
    `Inventory App` → `inventory-app`) and `organizationId`. Both are needed in Step 2.
    The result's `tenantManagement` confirms what the application was created with.
+5. **The call fails when the organization has no room for another application.** On
+   Kinotic Cloud's beta an organization can have two applications; a third is refused with
+   a message that says the user is on the beta cloud. Do not retry or rename. Follow
+   **Beta limits** below: tell the user, and offer to build in one of the organization's
+   existing applications (`Application Service Find All` lists them) or to delete one it no
+   longer needs, which only the user decides.
+
+### Beta limits
+
+When a tool call or a deployment fails with a message saying the user is on the Kinotic beta
+cloud, a beta limit was reached: while Kinotic Cloud is in beta, an organization can have at
+most two applications, and each application can deploy at most one microservice across all
+of its projects. Tell the user plainly, in your own words, that they are on Kinotic's beta
+cloud, which limits how many applications and microservices an organization can create, and
+that the limits will be removed once Kinotic is out of beta. Then offer the way forward the
+message names (build in an existing application, or put the new services in the
+application's existing microservice). Never try to get around a limit, for example by
+creating another organization or splitting a microservice across projects.
 
 ## Step 2 — Create the Project (provisions the Git repository)
 
@@ -294,7 +312,7 @@ repositories.
 ## Step 4 — Verify the scaffold
 
 Compare the cloned repository against `references/project-scaffold.md`. In short: a Bun
-workspace with `packages/domain`, `packages/microservices/main`, `packages/ui`, and a
+workspace with `packages/domain`, an empty `packages/microservices`, `packages/ui`, and a
 `.config/kinotic.config.ts` whose `organizationId` and `applicationId` match Step 1 and whose `projectId` matches Step 2.
 
 Run `bun install`, then `bun run type-check`. Check which `@kinotic-ai/*` versions
@@ -324,13 +342,15 @@ are the source of truth.
    `kinotic login` or `kinotic sync` yourself.
 5. **The push is the deployment.** A push to the default branch builds the project,
    synchronizes and publishes the entity definitions, and starts (or reloads) a VM for
-   each microservice, the scaffold's running `packages/microservices/main/src/main.ts`.
+   each microservice under `packages/microservices`. The scaffold has none, so a first push
+   of entities alone deploys no microservice; add one only when the application needs
+   services of its own (see **Adding a microservice** in `references/project-scaffold.md`).
    Verify it landed with the tool titled `Project Service Find Deployment`
    (`{"projectId": "<project id>"}`) — poll until `state.observed.phase` is `RUNNING` with
    `state.observed.commitSha` at the pushed commit, and report a `FAILED` phase's
    `failureMessage` to the user. Follow the deploying skill's superseded-push handling.
-   Then inspect `Microservice Deployment Service Find All For Project` for the starter
-   microservice and report failures. A deployed VM alone does not verify service health;
+   When the project has a microservice, inspect `Microservice Deployment Service Find All
+   For Project` for it and report failures. A deployed VM alone does not verify service health;
    call an application operation through its public interface when one exists.
    Full workflow and failure handling: the `deploying`
    skill. Publication is what creates the entity's storage, and it makes the definition

@@ -26,13 +26,12 @@ report the difference to the user, and do not "fix" the clone to match this docu
     │   ├── index.ts          # package entry — export entities/repositories here
     │   ├── model/            # @Entity classes go here
     │   └── repositories/     # `bun run generate` writes repository classes here
-    ├── microservices/
-    │   └── main/             # the starter microservice; each package here gets its own workload
+    ├── microservices/        # empty until the application needs one; each package here gets its own workload
     └── ui/                   # UI packages; each one with a build script is published as a site
 ```
 
-`packages/domain/model`, `packages/domain/repositories`, and `packages/ui` ship as empty
-directories holding a `.gitkeep`.
+`packages/domain/model`, `packages/domain/repositories`, `packages/microservices`, and
+`packages/ui` ship as empty directories holding a `.gitkeep`.
 
 ## Root `package.json`
 
@@ -123,12 +122,50 @@ export default config
   without `generatedPath` fails generation; see the `services` skill for what the module
   does.
 
-## The microservice entry point
+## Adding a microservice
 
-`packages/microservices/main/src/main.ts` is **the file the platform runs**. The template
-ships it already wired: the zone prefix from the project config, a zero-arg
-`await Kinotic.connect()`, an OpenTelemetry bootstrap gated on `OTEL_EXPORTER_OTLP_ENDPOINT`,
-and a SIGTERM handler that flushes spans.
+The template ships no microservice: entities and their generated repositories need none,
+so a project adds one only when the application needs code of its own on the server (the
+`services` skill says when). First check that the application has no microservice yet, in
+this project or another of its projects; if it has one, add the new services to it
+instead. On Kinotic Cloud's beta an application can deploy only one microservice across
+all of its projects, and a push that would give it a second fails its deployment.
+
+A microservice named `<name>` is three files under `packages/microservices/<name>/` and an
+entry in `bunup.config.ts`. The project's own `README.md` shows the same files; trust it
+over this document if they differ.
+
+`package.json`, whose unscoped `name` is the microservice's identity (lowercase letters,
+digits and interior dashes):
+
+```json
+{
+    "name": "@<project slug>/<name>",
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": { "type-check": "tsc --noEmit" },
+    "dependencies": {
+        "@<project slug>/domain": "workspace:*",
+        "@kinotic-ai/core": "catalog:",
+        "@kinotic-ai/management-api": "catalog:"
+    }
+}
+```
+
+`tsconfig.json`:
+
+```json
+{
+    "extends": "../../../tsconfig.base.json",
+    "files": [],
+    "include": ["**/*"],
+    "exclude": ["node_modules", "dist", "bin"]
+}
+```
+
+`src/main.ts`, **the file the platform runs** (the `package.json` `main`, or `src/main.ts`
+when it declares none). Deployed, the runtime workload preloads the OpenTelemetry SDK, so
+the entry point sets up no telemetry of its own:
 
 ```typescript
 import { Kinotic } from '@kinotic-ai/core'
@@ -142,30 +179,21 @@ Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
 await Kinotic.connect()
 ```
 
-Add services here, or add a sibling package under `packages/microservices/` — each package
-there gets its own runtime workload, with its entry taken from its `package.json` `main`
-(default `src/main.ts`). See the `deploying` skill.
+Register it in `bunup.config.ts`, after the domain entry:
 
-Its `package.json` depends on the domain package plus the catalog entries, and pins the
-OpenTelemetry packages its tracing bootstrap uses:
-
-```json
+```ts
 {
-    "name": "@<project slug>/main",
-    "version": "0.1.0",
-    "type": "module",
-    "scripts": { "type-check": "tsc --noEmit" },
-    "dependencies": {
-        "@<project slug>/domain": "workspace:*",
-        "@kinotic-ai/core": "catalog:",
-        "@kinotic-ai/management-api": "catalog:",
-        "@opentelemetry/exporter-trace-otlp-grpc": "<pinned version>",
-        "@opentelemetry/resources": "<pinned version>",
-        "@opentelemetry/sdk-node": "<pinned version>",
-        "@opentelemetry/semantic-conventions": "<pinned version>"
+    name: '<name>',
+    root: 'packages/microservices/<name>',
+    config: {
+        entry: 'src/main.ts',
+        dts: false
     }
 }
 ```
+
+Then run `bun install` so the workspace links it, and `bun run type-check`. The next push
+starts its VM; see the `deploying` skill.
 
 ## The domain package
 

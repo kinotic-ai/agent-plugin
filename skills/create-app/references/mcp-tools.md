@@ -107,6 +107,14 @@ nothing (all punctuation), slugifies to the platform-reserved id `system-api`, o
 long: the id must leave room for a UI name in the sites' hostname labels, so an id over 34
 characters is refused with a message ending `shorten the application name`.
 
+It also fails when the application would be new and the organization already has as many
+applications as the server allows. Kinotic Cloud's beta allows two; the message reads
+`Your organization already has 2 applications, the most it can have. …` and goes on to say
+`You are using the Kinotic beta cloud` and that the limits will be removed once Kinotic
+Cloud is out of beta. Match on `Kinotic beta cloud`: any tool or deployment failure carrying
+it is a beta limit, which the create-app skill's **Beta limits** section says how to explain.
+Calling it again with an existing application's name still returns that application.
+
 `tenantManagement` decides who creates the application's tenants:
 
 | Value | Meaning |

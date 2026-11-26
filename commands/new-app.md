@@ -8,8 +8,10 @@ server (`kinotic-os`, or `kinotic-local` for a local Kinotic), create the Applic
 its first Project, handle repository provisioning (and GitHub linking on Kinotic Cloud),
 clone the repository with a Kinotic token, verify the scaffold, define a first entity, and
 push — then confirm with `Project Service Find Deployment` that the deployment's
-`state.observed` reached `RUNNING` at the pushed commit. Check the starter microservice
-with `Microservice Deployment Service Find All For Project` and report any failureMessage.
+`state.observed` reached `RUNNING` at the pushed commit. The scaffold has no microservice;
+when the project has one, check it with `Microservice Deployment Service Find All For
+Project` and report any failureMessage. If a step fails with a message about the Kinotic beta
+cloud, explain the beta limits as the skill's **Beta limits** section says.
 A running VM is not proof the service answers: verify an application operation through
 its public interface when one exists. Follow the deploying skill's superseded-push handling.
 
