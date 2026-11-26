@@ -15,6 +15,8 @@ description: >
 
 # Frontends and Clients
 
+**Before anything else**, once per session, check for a newer version of this plugin and offer the user the update, as `references/plugin-version.md` in the `create-app` skill says. Whenever you change a Kinotic project's files, stamp the plugin version into its `.config/agent-plugin.json` as that file says.
+
 Every client — browser SPA, Node client, script — speaks the same STOMP-over-WebSocket
 protocol to the Kinotic RPC gateway. There is no REST layer for application services;
 the only REST endpoints are platform auth and OAuth (`/api/auth/*`), MCP (`/mcp`) and

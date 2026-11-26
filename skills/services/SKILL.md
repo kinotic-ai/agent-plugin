@@ -11,6 +11,8 @@ description: >
 
 # Kinotic Services
 
+**Before anything else**, once per session, check for a newer version of this plugin and offer the user the update, as `references/plugin-version.md` in the `create-app` skill says. Whenever you change a Kinotic project's files, stamp the plugin version into its `.config/agent-plugin.json` as that file says.
+
 Every remote call in a Kinotic app — service to service, frontend to backend — goes
 over one STOMP-over-WebSocket connection through the RPC gateway, addressed by zone +
 qualified name. There is no REST layer for application services.
@@ -79,12 +81,32 @@ The application id comes from the project's own config, never from the connectio
 runtime connects at organization scope, so nothing in its credentials names the
 application.
 
-The scaffold ships this entry point at `packages/microservices/main/src/main.ts`, and
-that is what the deployment runs. Add services by instantiating them there or by
-importing modules it pulls in, or add a second package under `packages/microservices/`:
-every package there is a microservice of its own, run in its own VM from its
-`package.json` `main` (default `src/main.ts`) with its own machine identity, so it needs
-the same entry-point wiring (`deploying` skill).
+**The scaffold ships no microservice.** A project starts with `packages/microservices/`
+empty, because entities and their generated repositories need no microservice of their
+own. Add one when the application needs code of its own running on the server: a
+`@Publish` service, logic across entities, calls to external APIs, or long-running work.
+Before adding one, check whether the application already has a microservice, in this
+project's `packages/microservices/` or in another of the application's projects
+(`Project Service Find All For Application`, then `Microservice Deployment Service Find All
+For Project` for each); if it does, add the new services to that one instead.
+
+To add a microservice, copy the project's starter, `.config/templates/microservice/`, to
+`packages/microservices/<name>/`, set its `package.json` `name` to `@<project slug>/<name>`,
+and run `bun install`; the steps are in **Adding a
+microservice** in the `create-app` skill's `references/project-scaffold.md`, and the project's
+own `README.md` shows the same. Never write the package from scratch. Then instantiate services in `src/main.ts`, or in modules it
+imports. Every package under `packages/microservices/` is a microservice of its own, run in
+its own VM from its `package.json` `main` (default `src/main.ts`) with its own machine
+identity (`deploying` skill).
+
+**On Kinotic Cloud's beta, an application can deploy one microservice**, counted across all
+of its projects. Put every service of an application in that one microservice rather than a
+package per service. A push whose commit would give the application a second microservice
+is not deployed: its deployment fails with a `failureMessage` about the beta cloud. Explain it to the user as
+the `create-app` skill's **Beta limits** section says, move the services into the
+existing microservice, and delete the extra package under `packages/microservices/` (and its
+`bunup.config.ts` entry, in a project whose `bunup.config.ts` lists packages by hand) before
+pushing again.
 
 `Kinotic.connect(options?)` takes an optional plain `ConnectOptions` object literal —
 every field is optional. Unset fields resolve in order: explicit value →

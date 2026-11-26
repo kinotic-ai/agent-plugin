@@ -166,6 +166,15 @@ so Claude Code permission names look like `mcp__plugin_kinotic_kinotic-os__5nwld
 literals. Each tool's description begins with its title (`Application Service Count: …`),
 which is how the skills tell tools apart.
 
+## Versioning
+
+Every skill starts by comparing the installed plugin's `version` with the one on `main`
+(`.claude-plugin/plugin.json`) and offers the user the update when `main` is newer, so bump
+the version in all three manifests with every change to the skills or commands. The agent
+also records the version that last changed a project in that project's
+`.config/agent-plugin.json`. Both are described in
+`skills/create-app/references/plugin-version.md`.
+
 ## End-to-end test checklist (maintainers)
 
 Requires a running Kinotic OS (`kinotic-server`), a test GitHub org with the Kinotic

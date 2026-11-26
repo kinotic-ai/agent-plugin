@@ -12,6 +12,8 @@ description: >
 
 # Entities and Persistence
 
+**Before anything else**, once per session, check for a newer version of this plugin and offer the user the update, as `references/plugin-version.md` in the `create-app` skill says. Whenever you change a Kinotic project's files, stamp the plugin version into its `.config/agent-plugin.json` as that file says.
+
 Kinotic persistence is code-first: entities are plain TypeScript classes with
 decorators, and typed repository classes are generated from them. Exact decorator
 signatures and the full repository API are in `references/decorators.md`. Deeper

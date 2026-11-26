@@ -13,9 +13,11 @@ report the difference to the user, and do not "fix" the clone to match this docu
 ├── package.json              # Bun workspace root
 ├── tsconfig.json             # `bun run generate` reads compilerOptions from here
 ├── tsconfig.base.json
-├── bunup.config.ts           # bunup workspace definition (packages are registered here)
+├── bunup.config.ts           # bunup workspace: the domain package plus every microservice it finds
 ├── .config/
 │   ├── kinotic.config.ts     # Kinotic project configuration (see below)
+│   ├── templates/microservice/  # starter microservice, copied into packages/microservices when needed
+│   ├── agent-plugin.json     # plugin version that last changed the project (written by the agent; see plugin-version.md)
 │   └── c3/                   # generated schemas (written by `bun run generate`; committed)
 ├── .kinotic/                 # local incremental-generation cache (gitignored — never commit)
 ├── migrations/               # V<N>__<description>.sql files (absent until first used)
@@ -26,13 +28,12 @@ report the difference to the user, and do not "fix" the clone to match this docu
     │   ├── index.ts          # package entry — export entities/repositories here
     │   ├── model/            # @Entity classes go here
     │   └── repositories/     # `bun run generate` writes repository classes here
-    ├── microservices/
-    │   └── main/             # the starter microservice; each package here gets its own workload
+    ├── microservices/        # empty until the application needs one; each package here gets its own workload
     └── ui/                   # UI packages; each one with a build script is published as a site
 ```
 
-`packages/domain/model`, `packages/domain/repositories`, and `packages/ui` ship as empty
-directories holding a `.gitkeep`.
+`packages/domain/model`, `packages/domain/repositories`, `packages/microservices`, and
+`packages/ui` ship as empty directories holding a `.gitkeep`.
 
 ## Root `package.json`
 
@@ -123,49 +124,54 @@ export default config
   without `generatedPath` fails generation; see the `services` skill for what the module
   does.
 
-## The microservice entry point
+## Adding a microservice
 
-`packages/microservices/main/src/main.ts` is **the file the platform runs**. The template
-ships it already wired: the zone prefix from the project config, a zero-arg
-`await Kinotic.connect()`, an OpenTelemetry bootstrap gated on `OTEL_EXPORTER_OTLP_ENDPOINT`,
-and a SIGTERM handler that flushes spans.
+The template ships no microservice: entities and their generated repositories need none,
+so a project adds one only when the application needs code of its own on the server (the
+`services` skill says when). First check that the application has no microservice yet, in
+this project or another of its projects; if it has one, add the new services to it
+instead. On Kinotic Cloud's beta an application can deploy only one microservice across
+all of its projects, and a push that would give it a second fails its deployment.
 
-```typescript
-import { Kinotic } from '@kinotic-ai/core'
-import { appZone } from '@kinotic-ai/management-api'
-import config from '../../../../.config/kinotic.config'
+The project carries a starter microservice at `.config/templates/microservice/`: a complete
+package (`package.json`, `tsconfig.json`, and `src/main.ts`, **the file the platform runs**)
+rendered for this project. It sits outside `packages/microservices/`, so it is never deployed
+itself. The project's own `README.md` describes the same steps; trust it over this document if
+they differ. To add a microservice named `<name>`:
 
-// The zone prefix must be set before any @Publish class is instantiated.
-Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
-
-// Instantiate @Publish services here. Before or after connect() both work.
-await Kinotic.connect()
+```bash
+cp -r .config/templates/microservice packages/microservices/<name>
 ```
 
-Add services here, or add a sibling package under `packages/microservices/` — each package
-there gets its own runtime workload, with its entry taken from its `package.json` `main`
-(default `src/main.ts`). See the `deploying` skill.
+In `packages/microservices/<name>/package.json`, change `name` from
+`@<project slug>/microservice` to `@<project slug>/<name>`; its unscoped part is the
+microservice's identity (lowercase letters, digits and interior dashes). Instantiate the
+`@Publish` services in `src/main.ts` where its comment marks the spot. Leave
+`.config/templates/microservice/` itself unchanged.
 
-Its `package.json` depends on the domain package plus the catalog entries, and pins the
-OpenTelemetry packages its tracing bootstrap uses:
+A project created before the template carried the starter has no `.config/templates/`. Take
+the same three files from `.config/templates/microservice/` of the template repository,
+`kinotic-ai/kinotic-tpl-isomorphic-ts`, replacing `{{ projectSlug }}` in `package.json.liquid`
+with the slug in the project's root `package.json` `name`, and saving it as `package.json`.
 
-```json
+`bunup.config.ts` finds every package directly under `packages/microservices` on its own, so a
+new microservice needs no entry there. A project created before it did lists its packages by
+hand: there, add an entry for the new microservice to the array passed to `defineWorkspace`,
+after the `domain` entry, where every entry but the last ends with a comma:
+
+```ts
 {
-    "name": "@<project slug>/main",
-    "version": "0.1.0",
-    "type": "module",
-    "scripts": { "type-check": "tsc --noEmit" },
-    "dependencies": {
-        "@<project slug>/domain": "workspace:*",
-        "@kinotic-ai/core": "catalog:",
-        "@kinotic-ai/management-api": "catalog:",
-        "@opentelemetry/exporter-trace-otlp-grpc": "<pinned version>",
-        "@opentelemetry/resources": "<pinned version>",
-        "@opentelemetry/sdk-node": "<pinned version>",
-        "@opentelemetry/semantic-conventions": "<pinned version>"
+    name: '<name>',
+    root: 'packages/microservices/<name>',
+    config: {
+        entry: 'src/main.ts',
+        dts: false
     }
 }
 ```
+
+Then run `bun install` so the workspace links it, and `bun run type-check`. The next push
+starts its VM; see the `deploying` skill.
 
 ## The domain package
 
@@ -189,7 +195,8 @@ and must be edited by hand if a new workspace package is added.
 
 The template ships `packages/ui/` empty, so a UI is created from scratch. Each one is its
 own workspace package under `packages/ui/` — the root workspace globs cover exactly that
-depth. Register it in `bunup.config.ts` and run `bun install` so the workspace links it.
+depth. Run `bun install` so the workspace links it; a UI builds with its own `build` script,
+not through `bunup.config.ts`.
 
 Two things make it a publishable UI rather than a library:
 
