@@ -179,7 +179,8 @@ Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
 await Kinotic.connect()
 ```
 
-Register it in `bunup.config.ts`, after the domain entry:
+Register it in `bunup.config.ts`: add a comma after the closing `}` of the `domain` entry, then
+the new entry:
 
 ```ts
 {
