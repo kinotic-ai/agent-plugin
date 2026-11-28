@@ -32,12 +32,19 @@ a root `.mcp.json` in addition to its manifest.
 
 **Claude desktop app**
 
-Install the plugin as for Claude Code, then work in a local session in the Code tab. The
+Work in a local session in the Code tab. Add the marketplace with the
+`/plugin marketplace add` command above in a Claude Code terminal session, then install the plugin with `/plugin install` there or with the
+Code tab's **+** button → **Add plugins** → `kinotic`, at user scope either way: the
+terminal and the desktop app's local sessions read the same user settings. The
 session's folder need not be a git repository, so a new user starts in any empty folder
 and runs `/kinotic:new-app`, which clones the provisioned project repository into a
 subfolder of it; later sessions open on that clone. Leave worktree isolation off for that
-first session, since it requires a git folder. Plugins do not load in the Chat tab: adding
-the MCP server there as a custom connector gives its tools without the skills.
+first session, since it requires a git folder.
+
+A plugin installed with `/plugin` stays on that computer and does not load in the Chat
+tab. To use the plugin's skills and commands in Chat, add `kinotic-ai/agent-plugin` to
+your claude.ai account under **Customize** → **Plugins** → **Add** → **Add marketplace**
+and add `kinotic` from it.
 
 **Codex** (CLI, IDE extension, and the ChatGPT desktop app)
 
