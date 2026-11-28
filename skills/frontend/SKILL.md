@@ -9,8 +9,9 @@ description: >
   application users, invoking published services and entity repositories from the UI, and
   the vite.config.ts a UI needs to bundle the domain package and its entity decorators. Use when building a
   Kinotic app frontend or SPA, working out what host or URL the UI should point at, wiring
-  up login or authentication, connecting any client to a Kinotic server, or when a UI
-  bundle fails to load with a SyntaxError or a blank page.
+  up login or authentication, sending a user whose session ended back to sign-in,
+  connecting any client to a Kinotic server, or when a UI bundle fails to load with a
+  SyntaxError or a blank page.
 ---
 
 # Frontends and Clients
@@ -319,9 +320,14 @@ export async function resume(): Promise<boolean> {
 
 /** Closes the connection and ends the browser session. */
 export async function logout(): Promise<void> {
+    connected = false
     await Kinotic.disconnect(true)
     await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' })
 }
+
+// true while a connection this module opened is meant to be open, so watchSession() ignores
+// the close logout() makes
+let connected = false
 
 async function connect(): Promise<void> {
     await Kinotic.connect({
@@ -330,6 +336,7 @@ async function connect(): Promise<void> {
         // the upgrade forever with no feedback on the login button
         maxConnectionAttempts: 3,
     })
+    connected = true
 }
 
 async function errorMessage(res: Response, fallback: string): Promise<string> {
@@ -341,6 +348,58 @@ async function errorMessage(res: Response, fallback: string): Promise<string> {
     }
 }
 ```
+
+### When the session ends
+
+The gateway closes a connection opened with the session cookie as soon as its session ends:
+the session expires once it has gone unused for `kinotic.apiGateway.sessionTimeout` (30
+minutes by default), or the user signs out in another tab, or the user is disabled. Use
+means a request or a message sent to the gateway from any tab on the session, so tabs of
+one UI stay signed in together and are signed out together. The page does not have to send
+anything for this to happen, so the connection of a tab left idle closes while it sits
+open, and every call made after that fails. Subscribe once at startup and send the user
+back to the sign-in page. Ask `GET /api/auth/me` which end it was: a `401` means the user
+was signed out, which deserves a neutral notice ("You were signed out"), not an error;
+anything else, or no answer within a few seconds, means the connection was lost while the
+session lives.
+
+```ts
+// src/kinotic/session.ts, beside login(), resume() and logout()
+
+/**
+ * Calls onSignedOut when the session behind the open connection ends, and onLost when the
+ * connection ends for good while the session is still live. Call once, at startup.
+ */
+export function watchSession(onSignedOut: () => void, onLost: (reason: Error | null) => void): void {
+    Kinotic.eventBus.connectionEnded.subscribe(async (reason: Error | null) => {
+        // the client reconnects on its own after a drop, and logout() closes its own connection
+        if (Kinotic.eventBus.isConnectionActive() || !connected) {
+            return
+        }
+        connected = false
+        let signedOut = false
+        try {
+            const res = await fetch(apiUrl('/api/auth/me'), {
+                credentials: 'include',
+                signal: AbortSignal.timeout(5000),
+            })
+            signedOut = res.status === 401
+        } catch {
+            // the server did not answer, so the connection was lost
+        }
+        if (signedOut) {
+            onSignedOut()
+        } else {
+            onLost(reason)
+        }
+    })
+}
+```
+
+Both callbacks route to the sign-in page; after signing in again, `login()` opens a fresh
+connection. With Vue Router, for example:
+`watchSession(() => router.push({ path: '/login', query: { signedOut: '1' } }), () => router.push('/login'))`,
+with the login page showing the notice when `signedOut` is set.
 
 One condition applies only to a **self-hosted** server; on Kinotic Cloud it is already
 settled. The cookie is `SameSite=Lax`, sent when the API and the site share a site — which

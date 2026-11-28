@@ -52,7 +52,7 @@ A Kinotic project records the plugin version that last changed it in
 
 ```json
 {
-    "version": "0.7.8"
+    "version": "0.7.9"
 }
 ```
 
