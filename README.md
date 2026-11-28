@@ -39,8 +39,8 @@ the plugin with `/plugin install` there or with the Code tab's **+** button →
 local sessions read the same user settings. The session's folder need not be a git
 repository, so a new user starts in any empty folder and runs `/kinotic:new-app`, which
 clones the provisioned project repository into a subfolder of it; later sessions open on
-that clone. Leave worktree isolation off for that
-first session, since it requires a git folder.
+that clone. Leave worktree isolation off for that first session, since it requires a git
+folder.
 
 A plugin installed with `/plugin` stays on that computer and does not load in the Chat
 tab. To use the plugin's skills and commands in Chat, add `kinotic-ai/agent-plugin` to
